@@ -4,7 +4,7 @@ An Android app for families travelling together to keep track of who ordered wha
 
 ## Install
 
-Download the latest APK from **[Releases](https://github.com/nadaaygab-dotcom/triptab/releases/latest)** on your Android phone (Android 8.0 or newer), open it, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
+On your Android phone, tap **[Download TripTab-0.2.apk](https://github.com/nadaaygab-dotcom/Triptab/raw/main/apk/TripTab-0.2.apk)** (Android 8.0 or newer), then open the downloaded file, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
 
 ## What it does
 
