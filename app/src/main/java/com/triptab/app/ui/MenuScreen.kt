@@ -33,6 +33,7 @@ fun MenuScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onSwitchMember: (String) -> Unit,
+    onScan: () -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var orderedOnly by rememberSaveable { mutableStateOf(false) }
@@ -79,6 +80,7 @@ fun MenuScreen(
                     if (qty.isNotEmpty() && !allDays) IconButton(onClick = { confirmClear = true }) {
                         Icon(Icons.Default.RemoveShoppingCart, "Clear ${member.name}'s order here")
                     }
+                    IconButton(onClick = onScan) { Icon(Icons.Default.DocumentScanner, "Scan menu") }
                     IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit menu") }
                 },
             )
@@ -139,8 +141,14 @@ fun MenuScreen(
             if (place.items.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("No menu items yet", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = onEdit) { Text("Add items") }
+                    Spacer(Modifier.height(4.dp))
+                    Text("Snap the menu and the app fills it in for you.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = onScan) {
+                        Icon(Icons.Default.DocumentScanner, null); Spacer(Modifier.width(8.dp)); Text("Scan menu")
+                    }
+                    TextButton(onClick = onEdit) { Text("Add items by hand") }
                 }
             } else if (visible.isEmpty()) item {
                 Text("Nothing matches", Modifier.fillMaxWidth().padding(32.dp), textAlign = TextAlign.Center)

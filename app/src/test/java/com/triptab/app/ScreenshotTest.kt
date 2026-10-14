@@ -62,6 +62,27 @@ class ScreenshotTest {
         }
         shot("4_summary") { val d by repo.data.collectAsState(); SummaryScreen(d.trips.first(), ALL_DAYS, {}, {}) }
         shot("4b_summary_day2") { val d by repo.data.collectAsState(); SummaryScreen(d.trips.first(), 2, {}, {}) }
+        shot("6_scan_photos") {
+            val d by repo.data.collectAsState()
+            val t = d.trips.first()
+            ScanMenuScreen(t, t.places.first { it.name == "Tibtunis" }, repo, {})
+        }
+        shot("7_scan_review") {
+            val d by repo.data.collectAsState()
+            val t = d.trips.first()
+            val kd = t.places.first { it.name == "Kom El Dikka" }
+            ScanMenuScreen(t, kd, repo, {}, initialResult = ScanResult(listOf(
+                ScannedItem("Hot drinks", "Turkish coffee", "قهوة تركي", 70.0),
+                ScannedItem("Hot drinks", "Espresso", "اسبريسو", 75.0),
+                ScannedItem("Hot drinks", "Sahlab", "سحلب", 85.0),
+                ScannedItem("Desserts", "Basbousa", "بسبوسة", 95.0),
+                ScannedItem("Desserts", "Om Ali", "ام علي", 150.0)), servicePct = 12.0, taxPct = 14.0))
+        }
+        shot("8_menu_empty") {
+            val d by repo.data.collectAsState()
+            val t = d.trips.first()
+            MenuScreen(t, t.members[0], t.places.first { it.name == "Tibtunis" }, repo, 1, {}, {}, {}, {})
+        }
         shot("5_edit_place") {
             val d by repo.data.collectAsState()
             val t = d.trips.first()

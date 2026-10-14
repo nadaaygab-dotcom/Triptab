@@ -268,7 +268,7 @@ object FayoumSeed {
         name = "Tibtunis",
         nameAr = "تبتونس",
         type = PlaceType.RESTAURANT,
-        note = "Menu not added yet — open this place and tap Edit to add items.",
+        note = "Menu not added yet — tap Scan menu to photograph it, or add items by hand.",
     )
 
     val safari = Place(

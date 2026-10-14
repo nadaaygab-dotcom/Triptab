@@ -37,9 +37,15 @@ fun TripListScreen(
     onDelete: (String) -> Unit,
 ) {
     var confirmDelete by remember { mutableStateOf<Trip?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("TripTab", fontWeight = FontWeight.Bold) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("TripTab", fontWeight = FontWeight.Bold) },
+                actions = { IconButton(onClick = { showSettings = true }) { Icon(Icons.Default.Settings, "Settings") } },
+            )
+        },
         floatingActionButton = {
             ExtendedFloatingActionButton(onClick = onNew, icon = { Icon(Icons.Default.Add, null) },
                 text = { Text("New trip") })
@@ -84,6 +90,12 @@ fun TripListScreen(
                 }
             }
         }
+    }
+
+    if (showSettings) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val settings = remember { com.triptab.app.scan.ScanSettings(context) }
+        ClaudeSettingsDialog(settings) { showSettings = false }
     }
 
     confirmDelete?.let { t ->

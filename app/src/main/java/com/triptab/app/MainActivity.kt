@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
                             onSwitchMember = { m -> nav.navigate("menu/${trip.id}/${m}/${place.id}") {
                                 popUpTo("trip/${trip.id}")
                             } },
+                            onScan = { nav.navigate("scan/${trip.id}/${place.id}") },
                         )
                     }
                     composable("summary/{tripId}", listOf(tripArg)) { e ->
@@ -104,6 +105,18 @@ class MainActivity : ComponentActivity() {
                         val placeId = e.arguments?.getString("placeId") ?: "new"
                         if (trip != null) PlaceEditScreen(
                             trip = trip, placeId = placeId, repo = repo,
+                            onBack = { nav.popBackStack() },
+                            onScan = { id -> nav.navigate("scan/${trip.id}/$id") },
+                        )
+                    }
+                    composable(
+                        "scan/{tripId}/{placeId}",
+                        listOf(tripArg, navArgument("placeId") { type = NavType.StringType }),
+                    ) { e ->
+                        val trip = data.trips.find { it.id == e.arguments?.getString("tripId") }
+                        val place = trip?.places?.find { it.id == e.arguments?.getString("placeId") }
+                        if (trip != null && place != null) ScanMenuScreen(
+                            trip = trip, place = place, repo = repo,
                             onBack = { nav.popBackStack() },
                         )
                     }

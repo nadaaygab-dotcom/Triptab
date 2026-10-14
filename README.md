@@ -4,7 +4,7 @@ An Android app for families travelling together to keep track of who ordered wha
 
 ## Install
 
-On your Android phone, tap **[Download TripTab-0.2.apk](https://github.com/nadaaygab-dotcom/Triptab/raw/main/apk/TripTab-0.2.apk)** (Android 8.0 or newer), then open the downloaded file, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
+On your Android phone, tap **[Download TripTab-0.3.apk](https://github.com/nadaaygab-dotcom/Triptab/raw/main/apk/TripTab-0.3.apk)** (Android 8.0 or newer), then open the downloaded file, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
 
 ## What it does
 
@@ -13,6 +13,7 @@ On your Android phone, tap **[Download TripTab-0.2.apk](https://github.com/nadaa
 - Tap **+** to add items; the bill updates live with subtotal, service, tax and the amount due.
 - **All days** sums every day of the trip; the summary shows totals per person, per place and per day, and can be shared on WhatsApp.
 - Places, menus and prices can be added or edited in the app.
+- **Scan menu**: photograph a menu and the items and prices are filled in for you to review. Works offline on the phone for English menus; with your own Anthropic API key (Settings), Claude reads Arabic and English menus in any layout.
 - Works fully offline; data stays on the phone.
 
 Comes with the Fayoum trip places (22–24 Oct 2026): Kom El Dikka (+12% service, +14% tax), Ibis Restaurant (+12% service), Tibtunis (menu to be added) and Safari.

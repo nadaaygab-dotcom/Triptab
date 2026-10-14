@@ -22,7 +22,8 @@ private fun Double.plain(): String = if (this % 1.0 == 0.0) this.toLong().toStri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlaceEditScreen(trip: Trip, placeId: String, repo: TripRepository, onBack: () -> Unit) {
+fun PlaceEditScreen(trip: Trip, placeId: String, repo: TripRepository, onBack: () -> Unit,
+                    onScan: (placeId: String) -> Unit = {}) {
     // For a new place we mint the id once; after the first save it exists in the trip.
     val id = rememberSaveable { if (placeId == "new") newId() else placeId }
     val existing = trip.places.find { it.id == id }
@@ -121,8 +122,14 @@ fun PlaceEditScreen(trip: Trip, placeId: String, repo: TripRepository, onBack: (
 
             if (existing != null) {
                 item {
-                    Text("Menu (${existing.items.size} items)", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+                    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Menu (${existing.items.size} items)", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        FilledTonalButton(onClick = { onScan(existing.id) }) {
+                            Icon(Icons.Default.DocumentScanner, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                            Text("Scan menu")
+                        }
+                    }
                 }
                 existing.items.groupBy { it.category }.forEach { (cat, list) ->
                     item(key = "c_$cat") {
@@ -145,7 +152,7 @@ fun PlaceEditScreen(trip: Trip, placeId: String, repo: TripRepository, onBack: (
                 }
             } else {
                 item {
-                    Text("Create the place first, then add its menu items.",
+                    Text("Create the place first, then scan its menu or add items.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -175,7 +182,7 @@ fun PlaceEditScreen(trip: Trip, placeId: String, repo: TripRepository, onBack: (
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ItemDialog(
+internal fun ItemDialog(
     item: MenuItem?,
     categories: List<String>,
     onSave: (MenuItem) -> Unit,
