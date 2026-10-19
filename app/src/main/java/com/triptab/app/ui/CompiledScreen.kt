@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,7 +43,14 @@ fun CompiledScreen(
     repo: TripRepository,
     onBack: () -> Unit,
     initialMessage: String? = null,
+    initialTab: Int = 0,
 ) {
+    var tab by rememberSaveable { mutableStateOf(initialTab) }
+    var kPlace by rememberSaveable { mutableStateOf<String?>(null) }
+    var kDay by rememberSaveable { mutableStateOf<String?>(null) }
+    var kNames by rememberSaveable { mutableStateOf(false) }
+    var kArabic by rememberSaveable { mutableStateOf(true) }
+    var kNote by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var day by rememberSaveable { mutableStateOf<String?>(null) }   // null = all days
@@ -105,6 +114,26 @@ fun CompiledScreen(
         },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
+                if (tab == 1 && compilation.imports.isNotEmpty()) {
+                    val place = kPlace
+                    val k = place?.let { Kitchen.order(compilation, it, kDay) }
+                    Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(enabled = k != null && k.lines.isNotEmpty(), modifier = Modifier.weight(1f), onClick = {
+                            val text = Kitchen.message(compilation, k!!, kNames, kArabic, kNote)
+                            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, text)
+                            }
+                            context.startActivity(android.content.Intent.createChooser(send, "Send order to ${k.place}"))
+                        }) { Icon(Icons.AutoMirrored.Filled.Send, null); Spacer(Modifier.width(8.dp)); Text("Send to restaurant") }
+                        OutlinedButton(enabled = k != null && k.lines.isNotEmpty(), onClick = {
+                            ExcelFiles.share(context, BillExport.fileName("Order", k!!.place, if (k.dayKey == null) "all days" else k.dayLabel),
+                                Kitchen.workbook(compilation, if (k.dayKey == null) Kitchen.all(compilation).filter { it.place == k.place } else listOf(k)),
+                                "Send order as Excel")
+                        }) { Icon(Icons.Default.TableView, "As Excel") }
+                    }
+                    return@Surface
+                }
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = { picker.launch(arrayOf(BillExport.MIME, "application/octet-stream")) },
@@ -118,7 +147,19 @@ fun CompiledScreen(
             }
         },
     ) { pad ->
-        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp),
+      Column(Modifier.padding(pad).fillMaxSize()) {
+        if (compilation.imports.isNotEmpty()) {
+            TabRow(selectedTabIndex = tab) {
+                Tab(tab == 0, { tab = 0 }, text = { Text("Bills") }, icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, null) })
+                Tab(tab == 1, { tab = 1 }, text = { Text("Kitchen order") }, icon = { Icon(Icons.Default.RestaurantMenu, null) })
+            }
+        }
+        if (tab == 1 && compilation.imports.isNotEmpty()) {
+            KitchenTab(compilation, kPlace, { kPlace = it }, kDay, { kDay = it }, kNames, { kNames = it },
+                kArabic, { kArabic = it }, kNote, { kNote = it })
+            return@Column
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 6.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (compilation.imports.isEmpty()) {
                 item { EmptyHelp(Modifier.padding(16.dp)) }
@@ -157,6 +198,7 @@ fun CompiledScreen(
                 FamilyCard(o, day, onRemove = { removing = o }, modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
+      }
     }
 
     message?.let { m ->
@@ -267,6 +309,89 @@ private fun MemberDetail(o: ImportedOrder, member: String, day: String?) {
                 }
                 if (b.service + b.tax > 0) Text("+ ${formatEgp(b.service + b.tax)} service & tax", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** Total dishes to prepare at one restaurant, from everyone's orders. */
+@Composable
+private fun KitchenTab(
+    c: Compilation,
+    place: String?, onPlace: (String) -> Unit,
+    day: String?, onDay: (String?) -> Unit,
+    names: Boolean, onNames: (Boolean) -> Unit,
+    arabic: Boolean, onArabic: (Boolean) -> Unit,
+    note: String, onNote: (String) -> Unit,
+) {
+    val places = c.places()
+    // Default to the first restaurant and its first day with orders.
+    LaunchedEffect(places) { if (place == null || place !in places) places.firstOrNull()?.let(onPlace) }
+    val p = place?.takeIf { it in places } ?: places.firstOrNull() ?: return
+    val days = c.days().filter { (k, _) -> c.imports.any { o -> o.lines.any { it.place == p && it.dayKey == k } } }
+    LaunchedEffect(p, days) { if (day != null && days.none { it.first == day }) onDay(days.firstOrNull()?.first) }
+    LaunchedEffect(p) { if (day == null && days.size == 1) onDay(days[0].first) }
+    val k = Kitchen.order(c, p, day?.takeIf { d -> days.any { it.first == d } })
+    val hasArabic = k.lines.any { it.itemAr.isNotBlank() && it.itemAr != it.item }
+
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Text("Restaurant", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(places) { pl -> FilterChip(pl == p, { onPlace(pl) }, label = { Text(pl) }) }
+            }
+            Text("Day", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(days) { (dk, label) -> FilterChip(day == dk, { onDay(dk) }, label = { Text(label) }) }
+                if (days.size > 1) item { FilterChip(day == null, { onDay(null) }, label = { Text("All days") }) }
+            }
+        }
+        item {
+            Card(Modifier.padding(16.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("To prepare at $p", style = MaterialTheme.typography.labelLarge)
+                        Text("${k.dishes} items", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        Text("${if (k.lines.size == 1) "1 dish" else "${k.lines.size} different dishes"} · ${k.people} ${if (k.people == 1) "person" else "people"} · ${if (k.dayKey == null) "all days" else k.dayLabel}",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Icon(Icons.Default.SoupKitchen, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            if (k.dayKey == null && days.size > 1) Text("Showing every day together. Pick a day to send one meal's order.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(horizontal = 16.dp))
+        }
+        for ((section, ls) in k.sections) {
+            item(key = "s_$section") {
+                Text(section, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 4.dp))
+            }
+            items(ls, key = { "i_" + it.item }) { l ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.Top) {
+                    Text("${l.quantity}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.widthIn(min = 40.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(l.item, style = MaterialTheme.typography.bodyLarge)
+                        if (l.itemAr.isNotBlank() && l.itemAr != l.item) Text(l.itemAr, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(l.who.joinToString(", ") { (n, q) -> if (q > 1) "$n ×$q" else n }, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+            }
+        }
+        item {
+            HorizontalDivider(Modifier.padding(top = 16.dp))
+            Text("Message to the restaurant", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
+            OutlinedTextField(note, onNote, label = { Text("Note (optional)") },
+                placeholder = { Text("e.g. We'll arrive around 2 pm, 11 people") },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+            Row(Modifier.fillMaxWidth().clickable { onNames(!names) }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(names, onNames); Text("Include who ordered each dish")
+            }
+            if (hasArabic) Row(Modifier.fillMaxWidth().clickable { onArabic(!arabic) }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(arabic, onArabic); Text("Include Arabic dish names")
             }
         }
     }

@@ -30,6 +30,8 @@ data class ImportedLine(
     val item: String,
     val quantity: Int,
     val unitPrice: Double,
+    /** Arabic dish name, when the menu has one (files from v0.5 don't carry it). */
+    val itemAr: String = "",
 ) {
     val lineTotal get() = unitPrice * quantity
     val dayKey get() = date.ifBlank { "day:$day" }
@@ -118,7 +120,7 @@ object BillExport {
                 member = names[o.memberId] ?: return@mapNotNull null,
                 day = o.day, date = TripDays.date(trip, o.day)?.toString().orEmpty(),
                 place = place.name, category = item.category, item = item.nameEn,
-                quantity = o.quantity, unitPrice = item.price,
+                quantity = o.quantity, unitPrice = item.price, itemAr = item.nameAr,
             )
         }.sortedWith(compareBy({ trip.members.indexOfFirst { m -> names[m.id] == it.member } }, { it.day },
             { p -> trip.places.indexOfFirst { it.name == p.place } }))
@@ -180,7 +182,7 @@ object BillExport {
         row("start", o.startDate); row("end", o.endDate); row("exported", o.exportedAt)
         o.members.forEach { row("member", it) }
         o.places.forEach { row("place", it.name, it.servicePct, it.taxPct, if (it.taxOnService) 1 else 0) }
-        o.lines.forEach { row("line", it.member, it.day, it.date, it.place, it.category, it.item, it.quantity, it.unitPrice) }
+        o.lines.forEach { row("line", it.member, it.day, it.date, it.place, it.category, it.item, it.quantity, it.unitPrice, it.itemAr) }
     }
 
     /** Reads a family's bill file. Throws IOException with a user-facing message if it isn't one. */
@@ -202,7 +204,7 @@ object BillExport {
                 "place" -> places += ImportedPlace(c(1), num(c(2)), num(c(3)), c(4).trim() != "0")
                 "line" -> {
                     val q = num(c(7)).toInt()
-                    if (q > 0) lines += ImportedLine(c(1), num(c(2)).toInt().coerceAtLeast(1), c(3), c(4), c(5), c(6), q, num(c(8)))
+                    if (q > 0) lines += ImportedLine(c(1), num(c(2)).toInt().coerceAtLeast(1), c(3), c(4), c(5), c(6), q, num(c(8)), c(9))
                 }
                 "" -> {}
                 else -> meta[c(0)] = c(1)
@@ -248,9 +250,101 @@ object BillExport {
         for (o in c.imports) for (l in o.lines)
             orders.row(o.familyLabel, l.member, dayLabel(l.day, l.date), l.place, l.category, l.item, l.quantity, l.unitPrice, l.lineTotal)
 
-        return Xlsx.write(listOf(sum, byDay, orders))
+        return Xlsx.write(listOf(sum, byDay, Kitchen.sheet(c, Kitchen.all(c)), orders))
     }
 
     fun fileName(vararg parts: String): String =
         parts.filter { it.isNotBlank() }.joinToString(" - ").replace(Regex("""[\\/:*?"<>|]"""), "").take(80) + ".xlsx"
+}
+
+// ---------------------------------------------------------------------------------------------
+// Kitchen order: how many of each dish to prepare, for one restaurant (and day).
+// ---------------------------------------------------------------------------------------------
+
+data class KitchenLine(
+    val category: String,
+    val item: String,
+    val itemAr: String,
+    val quantity: Int,
+    /** Who ordered it: family label → person → quantity. */
+    val who: List<Pair<String, Int>>,
+)
+
+data class KitchenOrder(val place: String, val dayKey: String?, val dayLabel: String, val lines: List<KitchenLine>) {
+    val dishes get() = lines.sumOf { it.quantity }
+    val people get() = lines.flatMap { l -> l.who.map { it.first } }.distinct().size
+    /** Lines grouped by section, sections in course order. */
+    val sections get() = lines.groupBy { it.category }.entries.map { it.key to it.value }
+}
+
+object Kitchen {
+    /** Course order for sections, so the kitchen list reads starters → mains → desserts → drinks. */
+    fun courseRank(category: String): Int {
+        val c = category.lowercase()
+        return when {
+            listOf("breakfast").any { it in c } -> 0
+            listOf("salad", "appetizer", "starter", "soup", "mezz").any { it in c } -> 1
+            listOf("side").any { it in c } -> 3
+            listOf("dessert", "sweet").any { it in c } -> 4
+            listOf("drink", "coffee", "tea", "juice", "mocktail", "water", "soft", "beverage", "infusion").any { it in c } -> 5
+            listOf("shisha").any { it in c } -> 6
+            listOf("activity").any { it in c } -> 7
+            c.contains("no longer") -> 8
+            else -> 2
+        }
+    }
+
+    fun order(c: Compilation, place: String, dayKey: String?): KitchenOrder {
+        val label = dayKey?.let { k -> c.days().firstOrNull { it.first == k }?.second } ?: "All days"
+        val rows = c.imports.flatMap { o -> o.lines.filter { it.place == place && (dayKey == null || it.dayKey == dayKey) }.map { o to it } }
+        val lines = rows.groupBy { (_, l) -> MenuMerge.key(l.item) }.values.map { group ->
+            val first = group.first().second
+            KitchenLine(
+                category = first.category.ifBlank { "Other" },
+                item = first.item,
+                itemAr = group.firstOrNull { it.second.itemAr.isNotBlank() }?.second?.itemAr.orEmpty(),
+                quantity = group.sumOf { it.second.quantity },
+                who = group.groupBy { (o, l) -> l.member + if (c.imports.count { it.allMembers.contains(l.member) } > 1) " (${o.family})" else "" }
+                    .map { (name, g) -> name to g.sumOf { it.second.quantity } },
+            )
+        }.sortedWith(compareBy({ courseRank(it.category) }, { it.category }, { it.item.lowercase() }))
+        return KitchenOrder(place, dayKey, label, lines)
+    }
+
+    /** The message to send the restaurant (WhatsApp). */
+    fun message(c: Compilation, k: KitchenOrder, withNames: Boolean, withArabic: Boolean, note: String): String = buildString {
+        appendLine("Order for ${k.place}")
+        appendLine("${c.name} group · ${if (k.dayKey == null) "all days" else k.dayLabel}")
+        appendLine("${k.dishes} items for ${k.people} people")
+        if (note.isNotBlank()) appendLine(note.trim())
+        for ((section, ls) in k.sections) {
+            appendLine()
+            appendLine("*${section}*")
+            for (l in ls) {
+                append("${l.quantity} × ${l.item}")
+                if (withArabic && l.itemAr.isNotBlank() && l.itemAr != l.item) append(" (${l.itemAr})")
+                if (withNames) append(" — " + l.who.joinToString(", ") { (n, q) -> if (q > 1) "$n ×$q" else n })
+                appendLine()
+            }
+        }
+        appendLine()
+        append("Thank you!")
+    }
+
+    fun sheet(c: Compilation, orders: List<KitchenOrder>): Xlsx.Sheet = Xlsx.Sheet("Kitchen order", widths = listOf(22, 20, 18, 34, 26, 6, 40)).apply {
+        row(*listOf("Day", "Place", "Section", "Item", "Arabic", "Qty", "Who ordered").map { Xlsx.Text(it, bold = true) }.toTypedArray<Any?>())
+        for (k in orders) {
+            for (l in k.lines) row(k.dayLabel, k.place, l.category, l.item, l.itemAr, l.quantity,
+                l.who.joinToString(", ") { (n, q) -> if (q > 1) "$n ×$q" else n })
+            row(Xlsx.Text("${k.dayLabel} · ${k.place} — total", bold = true), null, null, null, null, Xlsx.Num(k.dishes.toDouble(), bold = true, money = false))
+            blank()
+        }
+    }
+
+    /** Every restaurant × day that has orders, in order. */
+    fun all(c: Compilation): List<KitchenOrder> = c.days().flatMap { (dk, _) ->
+        c.places().map { order(c, it, dk) }.filter { it.lines.isNotEmpty() }
+    }
+
+    fun workbook(c: Compilation, orders: List<KitchenOrder>): ByteArray = Xlsx.write(listOf(sheet(c, orders)))
 }

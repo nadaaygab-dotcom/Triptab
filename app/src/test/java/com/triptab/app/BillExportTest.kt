@@ -90,7 +90,7 @@ class BillExportTest {
         assertEquals("later", comp.imports.first { it.family == "Sara" }.exportedAt)
 
         val wb = Xlsx.read(BillExport.compiledWorkbook(comp))
-        assertEquals(listOf("Summary", "By day", "Orders"), wb.keys.toList())
+        assertEquals(listOf("Summary", "By day", "Kitchen order", "Orders"), wb.keys.toList())
         assertEquals(comp.bill().total, wb["Summary"]!!.first { it.firstOrNull() == "Everyone" }[5].toDouble(), 0.01)
 
         repo.removeImport(c, sara.sourceId)

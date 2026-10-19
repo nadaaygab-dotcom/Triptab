@@ -56,6 +56,21 @@ class AdminScreenshotTest {
         compose.onRoot().captureRoboImage("build/screenshots/11_compiled_person.png")
     }
 
+    @Test fun kitchenOrder() {
+        val (repo, id) = repoWithCompilation()
+        compose.setContent {
+            TripTabTheme {
+                val d by repo.data.collectAsState()
+                CompiledScreen(d.compilations.first { it.id == id }, d.trips, repo, {}, initialTab = 1)
+            }
+        }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/14_kitchen.png")
+        compose.onNodeWithText("Ibis Restaurant").performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screenshots/15_kitchen_ibis.png")
+    }
+
     @Test fun compiledEmpty() {
         val repo = LocalJsonRepository(File(Files.createTempDirectory("tt").toFile(), "d.json"))
         val c = repo.createCompilation("Fayoum")

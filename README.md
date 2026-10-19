@@ -4,7 +4,7 @@ An Android app for families travelling together to keep track of who ordered wha
 
 ## Install
 
-On your Android phone, tap **[Download TripTab-0.5.apk](https://github.com/nadaaygab-dotcom/Triptab/raw/main/apk/TripTab-0.5.apk)** (Android 8.0 or newer), then open the downloaded file, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
+On your Android phone, tap **[Download TripTab-0.6.apk](https://github.com/nadaaygab-dotcom/Triptab/raw/main/apk/TripTab-0.6.apk)** (Android 8.0 or newer), then open the downloaded file, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
 
 ## What it does
 
@@ -16,6 +16,7 @@ On your Android phone, tap **[Download TripTab-0.5.apk](https://github.com/nadaa
 - **Scan menu**: photograph a menu and the items and prices are filled in for you to review. Works offline on the phone for English menus; with your own Anthropic API key (Settings), Claude reads Arabic and English menus in any layout.
 - **Send bill as Excel** (Summary screen): exports the family's whole trip — every person, day and place — to share on WhatsApp.
 - **Admin mode** (Settings): import the Excel bills families send you (Share / Open with → TripTab from WhatsApp, or Import bills) to see one compiled order with each family's and each person's bill, filter by day, add your own trip, and export the compiled order to Excel. A newer file from the same family replaces their older one.
+- **Kitchen order** (admin, compiled order): totals how many of each dish everyone ordered for one restaurant and day (e.g. 3 × Grilled Kofta), in course order, and sends it to the restaurant as a WhatsApp message or Excel so they can prepare before the group arrives.
 - Works fully offline; data stays on the phone.
 
 Comes with the Fayoum trip places (22–24 Oct 2026): Kom El Dikka (October 2026 menu, +12% service, +14% tax), Ibis Restaurant (+12% service), Tibtunis (menu to be added) and Safari.
