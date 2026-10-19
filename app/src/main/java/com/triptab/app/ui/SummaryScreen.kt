@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TableView
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -58,6 +59,11 @@ fun buildShareText(trip: Trip, day: Int = ALL_DAYS): String = buildString {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SummaryScreen(trip: Trip, day: Int, onDay: (Int) -> Unit, onBack: () -> Unit) {
+    fun exportExcel(context: android.content.Context) {
+        val o = BillExport.fromTrip(trip)
+        ExcelFiles.share(context, BillExport.fileName("TripTab", trip.name, trip.ownerName), BillExport.familyWorkbook(o),
+            "Send your bill")
+    }
     val context = LocalContext.current
     val d = dayOrNull(day)
     val family = Billing.billTotal(trip, null, d)
@@ -68,14 +74,27 @@ fun SummaryScreen(trip: Trip, day: Int, onDay: (Int) -> Unit, onBack: () -> Unit
                 title = { Text("Summary") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
+                    IconButton(onClick = { exportExcel(context) }) { Icon(Icons.Default.TableView, "Export Excel") }
                     IconButton(onClick = {
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"; putExtra(Intent.EXTRA_TEXT, buildShareText(trip, day))
                         }
                         context.startActivity(Intent.createChooser(send, "Share summary"))
-                    }) { Icon(Icons.Default.Share, "Share") }
+                    }) { Icon(Icons.Default.Share, "Share as text") }
                 },
             )
+        },
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Button(onClick = { exportExcel(context) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.TableView, null); Spacer(Modifier.width(8.dp)); Text("Send bill as Excel")
+                    }
+                    Text("All days, every person. Send it on WhatsApp to whoever is compiling the group's orders.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp))
+                }
+            }
         },
     ) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp),

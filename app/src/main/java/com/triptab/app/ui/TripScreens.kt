@@ -35,9 +35,15 @@ fun TripListScreen(
     onOpen: (String) -> Unit,
     onNew: () -> Unit,
     onDelete: (String) -> Unit,
+    admin: Boolean = false,
+    onAdmin: (Boolean) -> Unit = {},
+    onOpenCompilation: (String) -> Unit = {},
+    onNewCompilation: (String) -> Unit = {},
 ) {
     var confirmDelete by remember { mutableStateOf<Trip?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showClaude by remember { mutableStateOf(false) }
+    var naming by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -51,7 +57,7 @@ fun TripListScreen(
                 text = { Text("New trip") })
         },
     ) { pad ->
-        if (data.trips.isEmpty()) {
+        if (data.trips.isEmpty() && !admin) {
             Column(
                 Modifier.padding(pad).fillMaxSize().padding(24.dp),
                 verticalArrangement = Arrangement.Center,
@@ -70,6 +76,48 @@ fun TripListScreen(
         } else {
             LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (admin) {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AdminPanelSettings, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Compiled orders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f))
+                            TextButton(onClick = { naming = true }) { Text("New") }
+                        }
+                        Text("Import the Excel bills families send you to see everyone's orders and bills together.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    items(data.compilations, key = { "c" + it.id }) { c ->
+                        Card(Modifier.fillMaxWidth().clickable { onOpenCompilation(c.id) },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Groups, null)
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(c.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                    Text("${c.imports.size} famil${if (c.imports.size == 1) "y" else "ies"} · " +
+                                        "${c.imports.sumOf { it.allMembers.size }} people · ${formatEgp(c.bill().total)}",
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                                Icon(Icons.Default.ChevronRight, null)
+                            }
+                        }
+                    }
+                    if (data.compilations.isEmpty()) item {
+                        OutlinedButton(onClick = { naming = true }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Start a compiled order")
+                        }
+                    }
+                    item {
+                        Text("My trips", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 12.dp))
+                    }
+                    if (data.trips.isEmpty()) item {
+                        Text("None yet — tap New trip to track your own family's orders too.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 items(data.trips, key = { it.id }) { trip ->
                     val total = Billing.billTotal(trip, null).total
                     Card(Modifier.fillMaxWidth().clickable { onOpen(trip.id) }) {
@@ -92,10 +140,15 @@ fun TripListScreen(
         }
     }
 
-    if (showSettings) {
+    if (showSettings) AppSettingsDialog(admin, onAdmin, onClaude = { showSettings = false; showClaude = true }) { showSettings = false }
+    if (showClaude) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val settings = remember { com.triptab.app.scan.ScanSettings(context) }
-        ClaudeSettingsDialog(settings) { showSettings = false }
+        ClaudeSettingsDialog(settings) { showClaude = false }
+    }
+    if (naming) NameDialog("New compiled order", data.trips.firstOrNull()?.name ?: "") { n ->
+        naming = false
+        if (n != null && n.isNotBlank()) onNewCompilation(n)
     }
 
     confirmDelete?.let { t ->

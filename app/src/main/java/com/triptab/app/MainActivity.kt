@@ -1,6 +1,16 @@
 package com.triptab.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.triptab.app.data.Compilation
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,8 +36,18 @@ class MainActivity : ComponentActivity() {
         private var repoInstance: TripRepository? = null
     }
 
+    /** Bill files shared/opened from WhatsApp or a file manager, waiting to be imported. */
+    private val incoming = mutableStateOf<List<Uri>>(emptyList())
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        ExcelFiles.urisFrom(intent).takeIf { it.isNotEmpty() }?.let { incoming.value = it }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) ExcelFiles.urisFrom(intent).takeIf { it.isNotEmpty() }?.let { incoming.value = it }
+        val settings = AppSettings(this)
         enableEdgeToEdge()
         val repo = repoInstance ?: LocalJsonRepository(File(filesDir, "triptab.json")).also { repoInstance = it }
 
@@ -38,6 +58,39 @@ class MainActivity : ComponentActivity() {
                 val tripArg = navArgument("tripId") { type = NavType.StringType }
                 // Selected day, shared by the trip, menu and summary screens (ALL_DAYS = sum of all days).
                 var day by rememberSaveable { mutableIntStateOf(1) }
+                var admin by remember { mutableStateOf(settings.admin) }
+                // Result of importing shared files, shown on the compiled order they went into.
+                var importNote by remember { mutableStateOf<Pair<String, String>?>(null) }
+                val pending by incoming
+                var importing by remember { mutableStateOf(false) }
+                LaunchedEffect(pending) {
+                    if (pending.isEmpty()) return@LaunchedEffect
+                    importing = true
+                    val results = ExcelFiles.readBills(this@MainActivity, pending)
+                    incoming.value = emptyList()
+                    val orders = results.mapNotNull { it.order }
+                    val tripName = orders.firstOrNull()?.tripName?.trim().orEmpty()
+                    // Goes into the compiled order with the same trip name, or a new one.
+                    val existing: Compilation? = repo.data.value.compilations.firstOrNull { it.name.trim().equals(tripName, ignoreCase = true) }
+                        ?: repo.data.value.compilations.singleOrNull()?.takeIf { tripName.isBlank() }
+                    if (orders.isEmpty()) {
+                        importNote = "" to importMessage(results, existing)
+                    } else {
+                        val id = existing?.id ?: repo.createCompilation(tripName.ifBlank { "Compiled order" })
+                        repo.addImports(id, orders)
+                        if (!admin) { admin = true; settings.admin = true }
+                        importNote = id to importMessage(results, existing) +
+                            if (existing == null) "\n\nStarted a new compiled order: ${tripName.ifBlank { "Compiled order" }}." else ""
+                        nav.navigate("compiled/$id") { popUpTo("trips") }
+                    }
+                    importing = false
+                }
+                if (importing) AlertDialog(onDismissRequest = {}, confirmButton = {},
+                    title = { Text("Importing bills…") }, text = { CircularProgressIndicator() })
+                importNote?.takeIf { it.first.isEmpty() }?.let { (_, m) ->
+                    AlertDialog(onDismissRequest = { importNote = null }, title = { Text("Import") }, text = { Text(m) },
+                        confirmButton = { TextButton(onClick = { importNote = null }) { Text("OK") } })
+                }
                 fun openTrip(id: String) {
                     data.trips.find { it.id == id }?.let { day = TripDays.defaultDay(it) }
                     nav.navigate("trip/$id")
@@ -50,6 +103,10 @@ class MainActivity : ComponentActivity() {
                             onOpen = { openTrip(it) },
                             onNew = { nav.navigate("newTrip") },
                             onDelete = repo::deleteTrip,
+                            admin = admin,
+                            onAdmin = { admin = it; settings.admin = it },
+                            onOpenCompilation = { nav.navigate("compiled/$it") },
+                            onNewCompilation = { n -> nav.navigate("compiled/${repo.createCompilation(n)}") },
                         )
                     }
                     composable("newTrip") {
@@ -90,6 +147,17 @@ class MainActivity : ComponentActivity() {
                                 popUpTo("trip/${trip.id}")
                             } },
                             onScan = { nav.navigate("scan/${trip.id}/${place.id}") },
+                        )
+                    }
+                    composable("compiled/{id}", listOf(navArgument("id") { type = NavType.StringType })) { e ->
+                        val id = e.arguments?.getString("id")
+                        val c = data.compilations.find { it.id == id }
+                        val note = importNote?.takeIf { it.first == id }?.second
+                        LaunchedEffect(note) { if (note != null) importNote = null }
+                        if (c != null) CompiledScreen(
+                            compilation = c, trips = data.trips, repo = repo,
+                            onBack = { nav.popBackStack() },
+                            initialMessage = note,
                         )
                     }
                     composable("summary/{tripId}", listOf(tripArg)) { e ->

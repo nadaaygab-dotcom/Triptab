@@ -61,3 +61,42 @@ fun ClaudeSettingsDialog(settings: ScanSettings, onClose: () -> Unit) {
         },
     )
 }
+
+/** App-wide settings kept on this phone. */
+class AppSettings(context: android.content.Context) {
+    private val prefs = context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
+    var admin: Boolean
+        get() = prefs.getBoolean("admin_mode", false)
+        set(v) = prefs.edit().putBoolean("admin_mode", v).apply()
+}
+
+@Composable
+fun AppSettingsDialog(admin: Boolean, onAdmin: (Boolean) -> Unit, onClaude: () -> Unit, onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Settings") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { onAdmin(!admin) }) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Admin mode", style = MaterialTheme.typography.titleSmall)
+                        Text("Compile the group's orders from the Excel bills other families send you.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(admin, onAdmin)
+                }
+                HorizontalDivider()
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onClaude)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Menu scanning with Claude", style = MaterialTheme.typography.titleSmall)
+                        Text("API key for reading Arabic menus", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("›", style = MaterialTheme.typography.titleLarge)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text("Done") } },
+    )
+}

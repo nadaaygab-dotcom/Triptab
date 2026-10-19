@@ -12,6 +12,8 @@ fun newId(): String = UUID.randomUUID().toString()
 @Serializable
 data class AppData(
     val trips: List<Trip> = emptyList(),
+    /** Admin mode: orders compiled from other families' Excel files. */
+    val compilations: List<Compilation> = emptyList(),
     val schemaVersion: Int = 1,
 )
 

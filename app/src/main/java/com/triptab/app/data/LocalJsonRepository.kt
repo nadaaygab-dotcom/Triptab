@@ -115,6 +115,34 @@ class LocalJsonRepository(private val file: File) : TripRepository {
             }
         }
 
+    override fun createCompilation(name: String): String {
+        val c = Compilation(name = name.trim().ifEmpty { "Compiled order" }, createdAt = BillExport.now())
+        mutate { it.copy(compilations = it.compilations + c) }
+        return c.id
+    }
+
+    private fun mutateCompilation(id: String, block: (Compilation) -> Compilation) = mutate { d ->
+        d.copy(compilations = d.compilations.map { if (it.id == id) block(it) else it })
+    }
+
+    override fun renameCompilation(id: String, name: String) = mutateCompilation(id) { it.copy(name = name.trim()) }
+
+    override fun deleteCompilation(id: String) = mutate { d -> d.copy(compilations = d.compilations.filterNot { it.id == id }) }
+
+    override fun addImports(compilationId: String, orders: List<ImportedOrder>) = mutateCompilation(compilationId) { c ->
+        val stamp = BillExport.now()
+        orders.fold(c) { acc, o0 ->
+            val o = o0.copy(importedAt = stamp)
+            val i = acc.imports.indexOfFirst { it.sourceId == o.sourceId }
+            if (i >= 0) acc.copy(imports = acc.imports.toMutableList().also { it[i] = o })
+            else acc.copy(imports = acc.imports + o)
+        }
+    }
+
+    override fun removeImport(compilationId: String, sourceId: String) = mutateCompilation(compilationId) { c ->
+        c.copy(imports = c.imports.filterNot { it.sourceId == sourceId })
+    }
+
     override fun clearOrders(tripId: String, memberId: String, placeId: String, day: Int) = mutateTrip(tripId) { t ->
         t.copy(orders = t.orders.filterNot { it.memberId == memberId && it.placeId == placeId && it.day == day })
     }

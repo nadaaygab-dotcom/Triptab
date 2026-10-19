@@ -27,4 +27,12 @@ interface TripRepository {
     /** Sets the quantity a member ordered of one item at one place on one day (0 removes it). */
     fun setQuantity(tripId: String, memberId: String, placeId: String, itemId: String, day: Int, quantity: Int)
     fun clearOrders(tripId: String, memberId: String, placeId: String, day: Int)
+
+    // Admin mode — compiled orders.
+    fun createCompilation(name: String): String
+    fun renameCompilation(id: String, name: String)
+    fun deleteCompilation(id: String)
+    /** Adds families' orders; a newer file from the same family (same sourceId) replaces the older one. */
+    fun addImports(compilationId: String, orders: List<ImportedOrder>)
+    fun removeImport(compilationId: String, sourceId: String)
 }
