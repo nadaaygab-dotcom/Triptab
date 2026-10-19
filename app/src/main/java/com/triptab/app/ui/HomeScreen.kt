@@ -30,6 +30,7 @@ fun TripHomeScreen(
     onOpenPlace: (memberId: String, placeId: String) -> Unit,
     onSummary: () -> Unit,
     onEditPlace: (placeId: String) -> Unit,
+    onChecklist: () -> Unit = {},
 ) {
     var selectedId by rememberSaveable { mutableStateOf(trip.members.firstOrNull()?.id) }
     val selected = trip.members.find { it.id == selectedId } ?: trip.members.firstOrNull()
@@ -48,6 +49,7 @@ fun TripHomeScreen(
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
+                    IconButton(onClick = onChecklist) { Icon(Icons.Default.Checklist, "Packing checklist") }
                     IconButton(onClick = { showPeople = true }) { Icon(Icons.Default.Groups, "Manage people") }
                     IconButton(onClick = onSummary) { Icon(Icons.AutoMirrored.Filled.ReceiptLong, "Summary") }
                 },
@@ -75,6 +77,24 @@ fun TripHomeScreen(
         },
     ) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item {
+                val total = trip.checklist.size; val packed = trip.checklist.count { it.done }
+                OutlinedCard(onClick = onChecklist, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Luggage, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Packing checklist", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(if (total == 0) "Add things to bring" else if (packed == total) "All packed ✓" else "$packed of $total packed",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (total > 0) CircularProgressIndicator(progress = { packed.toFloat() / total }, modifier = Modifier.size(28.dp),
+                            strokeWidth = 3.dp, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Default.ChevronRight, null)
+                    }
+                }
+            }
             item {
                 Text("Who is ordering?", style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))

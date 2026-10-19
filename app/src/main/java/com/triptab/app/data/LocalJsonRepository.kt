@@ -23,7 +23,7 @@ class LocalJsonRepository(private val file: File) : TripRepository {
 
     /** One-time updates to built-in menus (e.g. a restaurant's new prices); saved if anything changed. */
     private fun upgradeMenus(d: AppData): AppData {
-        val next = d.copy(trips = d.trips.map(KomElDikkaMenu::upgrade))
+        val next = d.copy(trips = d.trips.map { PackingList.seed(KomElDikkaMenu.upgrade(it)) })
         if (next != d) runCatching {
             val tmp = File(file.parentFile, file.name + ".tmp")
             tmp.writeText(json.encodeToString(AppData.serializer(), next))
@@ -58,6 +58,7 @@ class LocalJsonRepository(private val file: File) : TripRepository {
             name = name.trim(), startDate = startDate.trim(), endDate = endDate.trim(),
             ownerName = ownerName.trim(), members = members,
             places = if (includeFayoumPlaces) FayoumSeed.places() else emptyList(),
+            checklist = PackingList.defaults(), checklistSeeded = true,
         )
         mutate { it.copy(trips = it.trips + trip) }
         return trip.id
@@ -114,6 +115,25 @@ class LocalJsonRepository(private val file: File) : TripRepository {
                     itemId = itemId, quantity = quantity, day = day))
             }
         }
+
+    private fun mutateChecklist(tripId: String, block: (List<ChecklistItem>) -> List<ChecklistItem>) =
+        mutateTrip(tripId) { it.copy(checklist = block(it.checklist)) }
+
+    override fun setChecked(tripId: String, itemId: String, done: Boolean) =
+        mutateChecklist(tripId) { l -> l.map { if (it.id == itemId) it.copy(done = done) else it } }
+
+    override fun upsertChecklistItem(tripId: String, item: ChecklistItem) = mutateChecklist(tripId) { l ->
+        if (l.any { it.id == item.id }) l.map { if (it.id == item.id) item else it }
+        else {
+            // New items go at the end of their section, so sections stay together.
+            val last = l.indexOfLast { it.section == item.section }
+            if (last < 0) l + item else l.toMutableList().also { it.add(last + 1, item) }
+        }
+    }
+
+    override fun removeChecklistItem(tripId: String, itemId: String) = mutateChecklist(tripId) { l -> l.filterNot { it.id == itemId } }
+
+    override fun uncheckAll(tripId: String) = mutateChecklist(tripId) { l -> l.map { it.copy(done = false) } }
 
     override fun createCompilation(name: String): String {
         val c = Compilation(name = name.trim().ifEmpty { "Compiled order" }, createdAt = BillExport.now())

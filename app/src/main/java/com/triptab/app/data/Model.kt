@@ -28,6 +28,10 @@ data class Trip(
     val members: List<Member> = emptyList(),
     val places: List<Place> = emptyList(),
     val orders: List<OrderLine> = emptyList(),
+    /** Packing checklist for this trip. */
+    val checklist: List<ChecklistItem> = emptyList(),
+    /** True once the starting list was added, so deleting everything doesn't bring it back. */
+    val checklistSeeded: Boolean = false,
 )
 
 @Serializable

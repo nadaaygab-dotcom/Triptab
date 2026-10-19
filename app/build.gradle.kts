@@ -13,8 +13,8 @@ android {
         applicationId = "com.triptab.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.6"
+        versionCode = 7
+        versionName = "0.7"
         // Phones only (the offline text-recognition model ships native code per CPU type).
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

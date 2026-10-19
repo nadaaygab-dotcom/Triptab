@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
                             onOpenPlace = { memberId, placeId -> nav.navigate("menu/${trip.id}/$memberId/$placeId") },
                             onSummary = { nav.navigate("summary/${trip.id}") },
                             onEditPlace = { placeId -> nav.navigate("editPlace/${trip.id}/$placeId") },
+                            onChecklist = { nav.navigate("checklist/${trip.id}") },
                         )
                     }
                     composable(
@@ -159,6 +160,10 @@ class MainActivity : ComponentActivity() {
                             onBack = { nav.popBackStack() },
                             initialMessage = note,
                         )
+                    }
+                    composable("checklist/{tripId}", listOf(tripArg)) { e ->
+                        val trip = data.trips.find { it.id == e.arguments?.getString("tripId") }
+                        if (trip != null) ChecklistScreen(trip = trip, repo = repo, onBack = { nav.popBackStack() })
                     }
                     composable("summary/{tripId}", listOf(tripArg)) { e ->
                         val trip = data.trips.find { it.id == e.arguments?.getString("tripId") }

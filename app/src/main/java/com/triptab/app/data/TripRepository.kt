@@ -28,6 +28,12 @@ interface TripRepository {
     fun setQuantity(tripId: String, memberId: String, placeId: String, itemId: String, day: Int, quantity: Int)
     fun clearOrders(tripId: String, memberId: String, placeId: String, day: Int)
 
+    // Packing checklist.
+    fun setChecked(tripId: String, itemId: String, done: Boolean)
+    fun upsertChecklistItem(tripId: String, item: ChecklistItem)
+    fun removeChecklistItem(tripId: String, itemId: String)
+    fun uncheckAll(tripId: String)
+
     // Admin mode — compiled orders.
     fun createCompilation(name: String): String
     fun renameCompilation(id: String, name: String)
