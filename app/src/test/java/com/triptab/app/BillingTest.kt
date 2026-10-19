@@ -14,16 +14,16 @@ class BillingTest {
 
     @Test fun komElDikkaServiceThenTax() {
         val p = FayoumSeed.places().first { it.name == "Kom El Dikka" }
-        val kofta = p.items.first { it.nameEn == "Grilled kofta" }      // 360
-        val water = p.items.first { it.nameEn == "Mineral water large" } // 38
+        val kofta = p.items.first { it.nameEn == "Grilled Kofta" }       // 435
+        val water = p.items.first { it.nameEn == "Large Mineral Water" } // 45
         val t = tripWith(p,
             OrderLine(memberId = dad.id, placeId = p.id, itemId = kofta.id, quantity = 1),
             OrderLine(memberId = dad.id, placeId = p.id, itemId = water.id, quantity = 2))
         val b = Billing.billAt(t, p, dad.id)
-        assertEquals(436.0, b.subtotal, 0.001)        // 360 + 2×38
-        assertEquals(52.32, b.service, 0.001)         // 12%
-        assertEquals(68.3648, b.tax, 0.001)           // 14% of 488.32
-        assertEquals(556.6848, b.total, 0.001)
+        assertEquals(525.0, b.subtotal, 0.001)        // 435 + 2×45
+        assertEquals(63.0, b.service, 0.001)          // 12%
+        assertEquals(82.32, b.tax, 0.001)             // 14% of 588
+        assertEquals(670.32, b.total, 0.001)
         assertEquals(0.0, Billing.billAt(t, p, kid.id).total, 0.001)
     }
 

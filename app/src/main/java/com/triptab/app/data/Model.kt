@@ -51,6 +51,8 @@ data class Place(
     val taxOnService: Boolean = true,
     val note: String = "",
     val items: List<MenuItem> = emptyList(),
+    /** Which edition of a built-in menu this is (0 = added by hand / first edition). */
+    val menuVersion: Int = 0,
 )
 
 @Serializable

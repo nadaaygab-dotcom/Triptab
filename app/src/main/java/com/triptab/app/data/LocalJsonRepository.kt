@@ -10,7 +10,7 @@ import java.io.File
 class LocalJsonRepository(private val file: File) : TripRepository {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = false }
-    private val state = MutableStateFlow(load())
+    private val state = MutableStateFlow(upgradeMenus(load()))
     override val data: StateFlow<AppData> = state.asStateFlow()
 
     private fun load(): AppData = try {
@@ -19,6 +19,17 @@ class LocalJsonRepository(private val file: File) : TripRepository {
         // Keep a copy of an unreadable file rather than silently losing it.
         file.copyTo(File(file.parentFile, file.name + ".corrupt"), overwrite = true)
         AppData()
+    }
+
+    /** One-time updates to built-in menus (e.g. a restaurant's new prices); saved if anything changed. */
+    private fun upgradeMenus(d: AppData): AppData {
+        val next = d.copy(trips = d.trips.map(KomElDikkaMenu::upgrade))
+        if (next != d) runCatching {
+            val tmp = File(file.parentFile, file.name + ".tmp")
+            tmp.writeText(json.encodeToString(AppData.serializer(), next))
+            tmp.renameTo(file)
+        }
+        return next
     }
 
     @Synchronized
