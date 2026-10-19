@@ -51,8 +51,10 @@ data class ImportedOrder(
     val places: List<ImportedPlace> = emptyList(),
     val lines: List<ImportedLine> = emptyList(),
     val importedAt: String = "",
+    /** The family's display name (e.g. "Sara's family"); older files only have [family]. */
+    val familyName: String = "",
 ) {
-    val familyLabel get() = if (family.isBlank()) "Family" else "$family's family"
+    val familyLabel get() = familyName.ifBlank { if (family.isBlank()) "Family" else "$family's family" }
 
     private fun charges(place: String) = places.firstOrNull { it.name == place } ?: ImportedPlace(place)
 
@@ -93,7 +95,8 @@ data class Compilation(
 // ---------------------------------------------------------------------------------------------
 
 object BillExport {
-    const val FORMAT = 1
+    /** 1 = one family per file; 2 = a file may carry several families (older apps can't read those). */
+    const val FORMAT = 2
     const val MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     private val STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ENGLISH)
 
@@ -104,33 +107,43 @@ object BillExport {
         return "Day $day · " + d.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH))
     }
 
-    /** A trip on this phone, as one family's order. */
-    fun fromTrip(trip: Trip, exportedAt: String = now()): ImportedOrder {
+    /** Each family on this phone's trip, as a separate family order (the first keeps the trip id, as in older files). */
+    fun fromTrip(trip: Trip, exportedAt: String = now()): List<ImportedOrder> {
+        val fams = trip.familyList
+        return fams.mapIndexed { i, f -> familyOrder(trip, f, if (i == 0) trip.id else "${trip.id}:${f.id}", exportedAt) }
+    }
+
+    /** One family of the trip. */
+    fun familyOrder(trip: Trip, family: Family, sourceId: String, exportedAt: String = now()): ImportedOrder {
+        val people = trip.membersOf(family.id)
         // Two people with the same name would merge — keep them apart.
         val seen = HashMap<String, Int>()
-        val names = trip.members.associate { m ->
+        val names = people.associate { m ->
             val n = m.name.trim().ifEmpty { "Guest" }
             val k = seen.merge(n.lowercase(), 1, Int::plus)!!
             m.id to if (k == 1) n else "$n ($k)"
         }
         val lines = trip.orders.mapNotNull { o ->
+            val member = names[o.memberId] ?: return@mapNotNull null
             val place = trip.places.find { it.id == o.placeId } ?: return@mapNotNull null
             val item = place.items.find { it.id == o.itemId } ?: return@mapNotNull null
             ImportedLine(
-                member = names[o.memberId] ?: return@mapNotNull null,
+                member = member,
                 day = o.day, date = TripDays.date(trip, o.day)?.toString().orEmpty(),
                 place = place.name, category = item.category, item = item.nameEn,
                 quantity = o.quantity, unitPrice = item.price, itemAr = item.nameAr,
             )
-        }.sortedWith(compareBy({ trip.members.indexOfFirst { m -> names[m.id] == it.member } }, { it.day },
+        }.sortedWith(compareBy({ people.indexOfFirst { m -> names[m.id] == it.member } }, { it.day },
             { p -> trip.places.indexOfFirst { it.name == p.place } }))
+        // The family's "head": the trip owner for the owner's family, else its first person.
+        val head = if (people.any { it.name.trim() == trip.ownerName.trim() }) trip.ownerName else people.firstOrNull()?.name.orEmpty()
         return ImportedOrder(
-            sourceId = trip.id, family = trip.ownerName, tripName = trip.name,
+            sourceId = sourceId, family = head.trim(), tripName = trip.name,
             startDate = trip.startDate, endDate = trip.endDate, exportedAt = exportedAt,
-            members = trip.members.map { names[it.id]!! },
+            members = people.map { names[it.id]!! },
             places = trip.places.filter { p -> lines.any { it.place == p.name } }
                 .map { ImportedPlace(it.name, it.servicePct, it.taxPct, it.taxOnService) },
-            lines = lines,
+            lines = lines, familyName = family.name,
         )
     }
 
@@ -141,25 +154,40 @@ object BillExport {
 
     private fun header(vararg h: String) = h.map { Xlsx.Text(it, bold = true) }.toTypedArray<Any?>()
 
-    /** One family's bill file: readable "Bill" and "Orders" sheets, plus a hidden "Data" sheet for importing. */
-    fun familyWorkbook(o: ImportedOrder): ByteArray {
+    fun familyWorkbook(o: ImportedOrder): ByteArray = familyWorkbook(listOf(o))
+
+    /**
+     * The bill file a phone sends: readable "Bill" and "Orders" sheets, plus a hidden "Data" sheet for importing.
+     * Several families (tracked on the same phone) each keep their own section and are imported separately.
+     */
+    fun familyWorkbook(orders: List<ImportedOrder>): ByteArray {
+        require(orders.isNotEmpty())
+        val many = orders.size > 1
+        val first = orders.first()
         val bill = Xlsx.Sheet("Bill", widths = listOf(24, 22, 22, 14, 12, 12, 14))
-        bill.row(Xlsx.Text("TripTab bill — ${o.familyLabel}", bold = true))
-        bill.row("Trip", listOf(o.tripName, listOf(o.startDate, o.endDate).filter { it.isNotBlank() }.joinToString(" – ")).filter { it.isNotBlank() }.joinToString(", "))
-        bill.row("Exported", o.exportedAt)
+        bill.row(Xlsx.Text("TripTab bill — " + if (many) orders.joinToString(" + ") { it.familyLabel } else first.familyLabel, bold = true))
+        bill.row("Trip", listOf(first.tripName, listOf(first.startDate, first.endDate).filter { it.isNotBlank() }.joinToString(" – ")).filter { it.isNotBlank() }.joinToString(", "))
+        bill.row("Exported", first.exportedAt)
         bill.blank()
-        bill.row(*header("Person", "Day", "Place", "Menu prices", "Service", "Tax", "Total"))
-        for (m in o.allMembers) {
-            val mine = o.lines.filter { it.member == m }
-            for ((dk, ls) in mine.groupBy { it.dayKey }) for (p in ls.map { it.place }.distinct()) {
-                bill.row(*billRow(m, dayLabel(ls[0].day, ls[0].date), p, o.bill(m, dk, p), false))
+        for (o in orders) {
+            if (many) bill.row(Xlsx.Text(o.familyLabel, bold = true))
+            bill.row(*header("Person", "Day", "Place", "Menu prices", "Service", "Tax", "Total"))
+            for (m in o.allMembers) {
+                val mine = o.lines.filter { it.member == m }
+                for ((dk, ls) in mine.groupBy { it.dayKey }) for (p in ls.map { it.place }.distinct()) {
+                    bill.row(*billRow(m, dayLabel(ls[0].day, ls[0].date), p, o.bill(m, dk, p), false))
+                }
+                bill.row(*billRow("$m — total", "", "", o.bill(m), true))
+                bill.blank()
             }
-            bill.row(*billRow("$m — total", "", "", o.bill(m), true))
+            bill.row(*billRow(if (many) "${o.familyLabel} — total" else "Family total", "", "", o.bill(), true))
             bill.blank()
         }
-        bill.row(*billRow("Family total", "", "", o.bill(), true))
-        bill.blank()
-        o.places.filter { it.servicePct > 0 || it.taxPct > 0 }.forEach {
+        if (many) {
+            bill.row(*billRow("All families — total", "", "", orders.fold(Bill.ZERO) { a, o -> a + o.bill() }, true))
+            bill.blank()
+        }
+        orders.flatMap { it.places }.distinctBy { it.name }.filter { it.servicePct > 0 || it.taxPct > 0 }.forEach {
             val parts = listOfNotNull(
                 it.servicePct.takeIf { v -> v > 0 }?.let { v -> "service ${fmtPct(v)}" },
                 it.taxPct.takeIf { v -> v > 0 }?.let { v -> "tax ${fmtPct(v)}" })
@@ -167,39 +195,57 @@ object BillExport {
             bill.row("${it.name}: ${parts.joinToString(", ")}$note")
         }
 
-        val orders = Xlsx.Sheet("Orders", widths = listOf(20, 22, 20, 18, 34, 6, 12, 14))
-        orders.row(*header("Person", "Day", "Place", "Section", "Item", "Qty", "Price", "Line total"))
-        for (l in o.lines) orders.row(l.member, dayLabel(l.day, l.date), l.place, l.category, l.item, l.quantity, l.unitPrice, l.lineTotal)
+        val sheet = Xlsx.Sheet("Orders", widths = (if (many) listOf(22) else emptyList()) + listOf(20, 22, 20, 18, 34, 6, 12, 14))
+        val cols = listOf("Person", "Day", "Place", "Section", "Item", "Qty", "Price", "Line total")
+        sheet.row(*header(*((if (many) listOf("Family") else emptyList()) + cols).toTypedArray()))
+        for (o in orders) for (l in o.lines) {
+            val row = listOf<Any?>(l.member, dayLabel(l.day, l.date), l.place, l.category, l.item, l.quantity, l.unitPrice, l.lineTotal)
+            sheet.row(*((if (many) listOf<Any?>(o.familyLabel) else emptyList()) + row).toTypedArray())
+        }
 
-        return Xlsx.write(listOf(bill, orders, dataSheet(o)))
+        val data = Xlsx.Sheet("Data", hidden = true).apply {
+            row("TripTab", "bill-export", if (many) 2 else 1)
+            for (o in orders) {
+                row("source", o.sourceId); row("family", o.family); row("familyname", o.familyName); row("trip", o.tripName)
+                row("start", o.startDate); row("end", o.endDate); row("exported", o.exportedAt)
+                o.members.forEach { row("member", it) }
+                o.places.forEach { row("place", it.name, it.servicePct, it.taxPct, if (it.taxOnService) 1 else 0) }
+                o.lines.forEach { row("line", it.member, it.day, it.date, it.place, it.category, it.item, it.quantity, it.unitPrice, it.itemAr) }
+            }
+        }
+        return Xlsx.write(listOf(bill, sheet, data))
     }
 
     private fun fmtPct(v: Double) = if (v % 1.0 == 0.0) "${v.toInt()}%" else "$v%"
 
-    private fun dataSheet(o: ImportedOrder) = Xlsx.Sheet("Data", hidden = true).apply {
-        row("TripTab", "bill-export", FORMAT)
-        row("source", o.sourceId); row("family", o.family); row("trip", o.tripName)
-        row("start", o.startDate); row("end", o.endDate); row("exported", o.exportedAt)
-        o.members.forEach { row("member", it) }
-        o.places.forEach { row("place", it.name, it.servicePct, it.taxPct, if (it.taxOnService) 1 else 0) }
-        o.lines.forEach { row("line", it.member, it.day, it.date, it.place, it.category, it.item, it.quantity, it.unitPrice, it.itemAr) }
-    }
+    /** Reads a bill file with one family. Throws IOException with a user-facing message if it isn't a TripTab bill. */
+    fun parse(bytes: ByteArray): ImportedOrder = parseAll(bytes).first()
 
-    /** Reads a family's bill file. Throws IOException with a user-facing message if it isn't one. */
-    fun parse(bytes: ByteArray): ImportedOrder {
+    /** Reads every family in a bill file (one phone can track several families). */
+    fun parseAll(bytes: ByteArray): List<ImportedOrder> {
         val sheets = Xlsx.read(bytes)
         val data = sheets.entries.firstOrNull { it.key.equals("Data", ignoreCase = true) }?.value
         if (data == null || data.firstOrNull()?.firstOrNull() != "TripTab")
-            throw IOException("This isn't a TripTab bill. Ask them to use Summary → Export Excel in TripTab.")
+            throw IOException("This isn't a TripTab bill. Ask them to use Summary → Send bill as Excel in TripTab.")
         val fmt = data[0].getOrNull(2)?.toDoubleOrNull()?.toInt() ?: 0
         if (fmt > FORMAT) throw IOException("This bill was made by a newer TripTab. Update the app to import it.")
 
         fun num(s: String?) = s?.trim()?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
-        val meta = HashMap<String, String>()
-        val members = ArrayList<String>(); val places = ArrayList<ImportedPlace>(); val lines = ArrayList<ImportedLine>()
+        val out = ArrayList<ImportedOrder>()
+        var meta = HashMap<String, String>()
+        var members = ArrayList<String>(); var places = ArrayList<ImportedPlace>(); var lines = ArrayList<ImportedLine>()
+        fun flush() {
+            if (meta.isEmpty() && lines.isEmpty() && members.isEmpty()) return
+            val source = meta["source"].orEmpty()
+            if (source.isBlank()) throw IOException("This TripTab bill is missing its family id and can't be imported.")
+            out += ImportedOrder(source, meta["family"].orEmpty(), meta["trip"].orEmpty(), meta["start"].orEmpty(),
+                meta["end"].orEmpty(), meta["exported"].orEmpty(), members, places, lines, familyName = meta["familyname"].orEmpty())
+            meta = HashMap(); members = ArrayList(); places = ArrayList(); lines = ArrayList()
+        }
         for (r in data.drop(1)) {
             fun c(i: Int) = r.getOrNull(i).orEmpty()
             when (c(0)) {
+                "source" -> { flush(); meta["source"] = c(1) }
                 "member" -> members += c(1)
                 "place" -> places += ImportedPlace(c(1), num(c(2)), num(c(3)), c(4).trim() != "0")
                 "line" -> {
@@ -210,10 +256,9 @@ object BillExport {
                 else -> meta[c(0)] = c(1)
             }
         }
-        val source = meta["source"].orEmpty()
-        if (source.isBlank()) throw IOException("This TripTab bill is missing its family id and can't be imported.")
-        return ImportedOrder(source, meta["family"].orEmpty(), meta["trip"].orEmpty(), meta["start"].orEmpty(),
-            meta["end"].orEmpty(), meta["exported"].orEmpty(), members, places, lines)
+        flush()
+        if (out.isEmpty()) throw IOException("This TripTab bill is empty.")
+        return out
     }
 
     /** The admin's compiled workbook: summary per family and person, totals per day and place, every order. */

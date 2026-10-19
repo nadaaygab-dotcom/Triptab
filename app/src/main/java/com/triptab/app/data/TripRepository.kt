@@ -15,7 +15,13 @@ interface TripRepository {
     fun deleteTrip(tripId: String)
     fun updateTripInfo(tripId: String, name: String, startDate: String, endDate: String)
 
-    fun addMember(tripId: String, name: String)
+    /** Adds a person to a family (null = the first family). */
+    fun addMember(tripId: String, name: String, familyId: String? = null)
+    /** Adds a family with its people; returns the family id. */
+    fun addFamily(tripId: String, name: String, memberNames: List<String>): String
+    fun renameFamily(tripId: String, familyId: String, name: String)
+    /** Removes a family, its people and their orders (the last family can't be removed). */
+    fun removeFamily(tripId: String, familyId: String)
     fun renameMember(tripId: String, memberId: String, name: String)
     fun removeMember(tripId: String, memberId: String)
 

@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
                     importing = true
                     val results = ExcelFiles.readBills(this@MainActivity, pending)
                     incoming.value = emptyList()
-                    val orders = results.mapNotNull { it.order }
+                    val orders = results.flatMap { it.orders }
                     val tripName = orders.firstOrNull()?.tripName?.trim().orEmpty()
                     // Goes into the compiled order with the same trip name, or a new one.
                     val existing: Compilation? = repo.data.value.compilations.firstOrNull { it.name.trim().equals(tripName, ignoreCase = true) }

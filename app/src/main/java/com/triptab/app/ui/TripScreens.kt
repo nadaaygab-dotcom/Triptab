@@ -21,6 +21,7 @@ import com.triptab.app.data.AppData
 import com.triptab.app.data.Billing
 import com.triptab.app.data.Trip
 import com.triptab.app.data.formatEgp
+import com.triptab.app.data.familyList
 
 fun Trip.datesLabel(): String = when {
     startDate.isBlank() && endDate.isBlank() -> ""
@@ -126,7 +127,7 @@ fun TripListScreen(
                                 Text(trip.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 if (trip.datesLabel().isNotEmpty())
                                     Text(trip.datesLabel(), style = MaterialTheme.typography.bodySmall)
-                                Text("${trip.members.size} people · ${formatEgp(total)} due",
+                                Text((if (trip.familyList.size > 1) "${trip.familyList.size} families · " else "") + "${trip.members.size} people · ${formatEgp(total)} due",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

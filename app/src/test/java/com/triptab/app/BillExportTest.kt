@@ -27,7 +27,7 @@ class BillExportTest {
 
     @Test fun roundTripKeepsEveryOrderAndBill() {
         val trip = sampleTrip()
-        val o = BillExport.fromTrip(trip, exportedAt = "2026-10-24 22:00")
+        val o = BillExport.fromTrip(trip, exportedAt = "2026-10-24 22:00").single()
         val back = BillExport.parse(BillExport.familyWorkbook(o))
         assertEquals(o, back)
         // Bills match the app's own maths for each person and the family.
@@ -38,19 +38,19 @@ class BillExportTest {
     }
 
     @Test fun readableSheetsLookRight() {
-        val sheets = Xlsx.read(BillExport.familyWorkbook(BillExport.fromTrip(sampleTrip())))
+        val sheets = Xlsx.read(BillExport.familyWorkbook(BillExport.fromTrip(sampleTrip()).single()))
         assertEquals(listOf("Bill", "Orders", "Data"), sheets.keys.toList())
         val bill = sheets["Bill"]!!
         assertEquals("TripTab bill — Nada's family", bill[0][0])
         val familyTotal = bill.first { it.firstOrNull() == "Family total" }
-        assertEquals(BillExport.fromTrip(sampleTrip()).bill().total, familyTotal[6].toDouble(), 0.01)
+        assertEquals(BillExport.fromTrip(sampleTrip()).single().bill().total, familyTotal[6].toDouble(), 0.01)
         val orders = sheets["Orders"]!!
         assertEquals(listOf("Person", "Day", "Place", "Section", "Item", "Qty", "Price", "Line total"), orders[0])
         assertTrue(orders.any { it.getOrNull(4) == "Grilled Kofta" && it[1] == "Day 1 · Thu 22 Oct" })
     }
 
     @Test fun sameNamesStayApart() {
-        val o = BillExport.fromTrip(sampleTrip(owner = "Ali", kids = listOf("Ali")))
+        val o = BillExport.fromTrip(sampleTrip(owner = "Ali", kids = listOf("Ali"))).single()
         assertEquals(listOf("Ali", "Ali (2)"), o.members)
     }
 
@@ -68,14 +68,14 @@ class BillExportTest {
         assertEquals("Nada", o.family)
         assertEquals(listOf("Nada", "Yehia", "Alya"), o.members)
         assertEquals(5, o.lines.size)
-        assertEquals(BillExport.fromTrip(sampleTrip()).bill().total, o.bill().total, 0.01)
+        assertEquals(BillExport.fromTrip(sampleTrip()).single().bill().total, o.bill().total, 0.01)
     }
 
     @Test fun compiledTotalsAndReimportReplaces() {
         val repo = LocalJsonRepository(File(Files.createTempDirectory("tt").toFile(), "d.json"))
         val c = repo.createCompilation("Fayoum")
-        val nada = BillExport.fromTrip(sampleTrip("Nada"))
-        val sara = BillExport.fromTrip(sampleTrip("Sara", listOf("Omar")))
+        val nada = BillExport.fromTrip(sampleTrip("Nada")).single()
+        val sara = BillExport.fromTrip(sampleTrip("Sara", listOf("Omar"))).single()
         repo.addImports(c, listOf(nada, sara))
         var comp = repo.data.value.compilations.single()
         assertEquals(2, comp.imports.size)
@@ -100,10 +100,10 @@ class BillExportTest {
     /** Dev aid: writes a sample export for external checks (set EXPORT_SAMPLE_DIR). */
     @Test fun writeSample() {
         val dir = System.getenv("EXPORT_SAMPLE_DIR")?.let(::File) ?: return
-        File(dir, "sample-bill.xlsx").writeBytes(BillExport.familyWorkbook(BillExport.fromTrip(sampleTrip(), "2026-10-24 22:00")))
+        File(dir, "sample-bill.xlsx").writeBytes(BillExport.familyWorkbook(BillExport.fromTrip(sampleTrip(), "2026-10-24 22:00").single()))
         val repo = LocalJsonRepository(File(Files.createTempDirectory("tt").toFile(), "d.json"))
         val c = repo.createCompilation("Fayoum")
-        repo.addImports(c, listOf(BillExport.fromTrip(sampleTrip("Nada")), BillExport.fromTrip(sampleTrip("Sara", listOf("Omar")))))
+        repo.addImports(c, listOf(BillExport.fromTrip(sampleTrip("Nada")).single(), BillExport.fromTrip(sampleTrip("Sara", listOf("Omar"))).single()))
         File(dir, "sample-compiled.xlsx").writeBytes(BillExport.compiledWorkbook(repo.data.value.compilations.single()))
     }
 }

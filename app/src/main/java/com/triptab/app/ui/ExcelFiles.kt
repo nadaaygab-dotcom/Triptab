@@ -32,7 +32,10 @@ object ExcelFiles {
         context.startActivity(Intent.createChooser(send, title))
     }
 
-    data class ReadResult(val fileName: String, val order: ImportedOrder?, val error: String?)
+    /** A file's families (a phone tracking several families sends them in one file), or why it couldn't be read. */
+    data class ReadResult(val fileName: String, val orders: List<ImportedOrder>, val error: String?) {
+        val ok get() = error == null
+    }
 
     /** Reads each picked/shared file; a file that fails doesn't stop the others. */
     suspend fun readBills(context: Context, uris: List<Uri>): List<ReadResult> = withContext(Dispatchers.IO) {
@@ -48,11 +51,11 @@ object ExcelFiles {
                     }
                     out.toByteArray()
                 } ?: throw IOException("Couldn't open the file.")
-                ReadResult(name, BillExport.parse(bytes), null)
+                ReadResult(name, BillExport.parseAll(bytes), null)
             } catch (e: IOException) {
-                ReadResult(name, null, e.message ?: "Couldn't read the file.")
+                ReadResult(name, emptyList(), e.message ?: "Couldn't read the file.")
             } catch (e: Exception) {
-                ReadResult(name, null, "Couldn't read the file.")
+                ReadResult(name, emptyList(), "Couldn't read the file.")
             }
         }
     }

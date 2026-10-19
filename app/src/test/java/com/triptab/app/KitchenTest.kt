@@ -60,7 +60,7 @@ class KitchenTest {
 
     @Test fun arabicNamesTravelInBillFilesAndOldFilesStillImport() {
         val trip = BillExportTest().sampleTrip()
-        val o = BillExport.fromTrip(trip)
+        val o = BillExport.fromTrip(trip).single()
         assertEquals("قهوة تركية", o.lines.first { it.item == "Turkish coffee" }.itemAr)   // Ibis has Arabic names
         assertEquals(o, BillExport.parse(BillExport.familyWorkbook(o)))
         // A v0.5 file has no Arabic column: still imports, with blank Arabic names.

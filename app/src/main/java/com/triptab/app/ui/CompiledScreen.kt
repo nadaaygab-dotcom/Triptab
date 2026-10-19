@@ -26,12 +26,12 @@ import kotlinx.coroutines.launch
 
 /** Plain-language result of an import, for the dialog. */
 fun importMessage(results: List<ExcelFiles.ReadResult>, before: Compilation?): String = buildString {
-    val ok = results.mapNotNull { it.order }
+    val ok = results.flatMap { it.orders }
     val known = before?.imports?.map { it.sourceId }?.toSet().orEmpty()
     val added = ok.filter { it.sourceId !in known }; val updated = ok.filter { it.sourceId in known }
     if (added.isNotEmpty()) appendLine("Added: " + added.joinToString { "${it.familyLabel} (${it.allMembers.size} people, ${formatEgp(it.bill().total)})" })
     if (updated.isNotEmpty()) appendLine("Updated with their newer file: " + updated.joinToString { it.familyLabel })
-    results.filter { it.order == null }.forEach { appendLine("Couldn't import ${it.fileName}: ${it.error}") }
+    results.filter { !it.ok }.forEach { appendLine("Couldn't import ${it.fileName}: ${it.error}") }
     if (ok.isEmpty() && results.isEmpty()) append("No files were chosen.")
 }.trim()
 
@@ -68,7 +68,7 @@ fun CompiledScreen(
         scope.launch {
             val results = ExcelFiles.readBills(context, uris)
             val before = compilation
-            repo.addImports(compilation.id, results.mapNotNull { it.order })
+            repo.addImports(compilation.id, results.flatMap { it.orders })
             message = importMessage(results, before)
             busy = false
         }
@@ -76,7 +76,7 @@ fun CompiledScreen(
     fun addTrip(t: Trip) {
         val o = BillExport.fromTrip(t)
         val before = compilation
-        repo.addImports(compilation.id, listOf(o))
+        repo.addImports(compilation.id, o)
         message = importMessage(listOf(ExcelFiles.ReadResult(t.name, o, null)), before)
     }
 

@@ -1,6 +1,7 @@
 package com.triptab.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -32,10 +33,15 @@ fun TripHomeScreen(
     onEditPlace: (placeId: String) -> Unit,
     onChecklist: () -> Unit = {},
 ) {
-    var selectedId by rememberSaveable { mutableStateOf(trip.members.firstOrNull()?.id) }
-    val selected = trip.members.find { it.id == selectedId } ?: trip.members.firstOrNull()
+    val families = trip.familyList
+    var familyId by rememberSaveable { mutableStateOf(families.first().id) }
+    val family = families.find { it.id == familyId } ?: families.first()
+    val famMembers = trip.membersOf(family.id)
+    var selectedId by rememberSaveable { mutableStateOf(famMembers.firstOrNull()?.id) }
+    val selected = famMembers.find { it.id == selectedId } ?: famMembers.firstOrNull()
     var showPeople by remember { mutableStateOf(false) }
     var addingPerson by remember { mutableStateOf(false) }
+    var addingFamily by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -50,7 +56,7 @@ fun TripHomeScreen(
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
                     IconButton(onClick = onChecklist) { Icon(Icons.Default.Checklist, "Packing checklist") }
-                    IconButton(onClick = { showPeople = true }) { Icon(Icons.Default.Groups, "Manage people") }
+                    IconButton(onClick = { showPeople = true }) { Icon(Icons.Default.Groups, "Families and people") }
                     IconButton(onClick = onSummary) { Icon(Icons.AutoMirrored.Filled.ReceiptLong, "Summary") }
                 },
             )
@@ -67,8 +73,9 @@ fun TripHomeScreen(
                         }
                     }
                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.clickable(onClick = onSummary)) {
-                        Text("Family · ${dayCaption(trip, day)}", style = MaterialTheme.typography.labelMedium)
-                        Text(formatEgp(Billing.billTotal(trip, null, dayOrNull(day)).total),
+                        Text("${if (families.size > 1) family.name else "Family"} · ${dayCaption(trip, day)}",
+                            style = MaterialTheme.typography.labelMedium)
+                        Text(formatEgp(Billing.familyBill(trip, family.id, dayOrNull(day)).total),
                             style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary)
                     }
@@ -96,11 +103,28 @@ fun TripHomeScreen(
                 }
             }
             item {
+                Text("Family", style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(families, key = { "f" + it.id }) { f ->
+                        FilterChip(
+                            selected = f.id == family.id,
+                            onClick = { familyId = f.id; selectedId = trip.membersOf(f.id).firstOrNull()?.id },
+                            label = { Text(f.name) },
+                            leadingIcon = { Icon(Icons.Default.Groups, null, Modifier.size(18.dp)) },
+                        )
+                    }
+                    item {
+                        AssistChip(onClick = { addingFamily = true }, label = { Text("Add family") },
+                            leadingIcon = { Icon(Icons.Default.GroupAdd, null, Modifier.size(18.dp)) })
+                    }
+                }
                 Text("Who is ordering?", style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(trip.members, key = { it.id }) { m ->
+                    items(famMembers, key = { it.id }) { m ->
                         FilterChip(
                             selected = m.id == selected?.id,
                             onClick = { selectedId = m.id },
@@ -115,6 +139,9 @@ fun TripHomeScreen(
                             leadingIcon = { Icon(Icons.Default.PersonAdd, null, Modifier.size(18.dp)) })
                     }
                 }
+                if (famMembers.isEmpty()) Text("Add a person to ${family.name} to start ordering.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.padding(start = 16.dp, top = 6.dp))
                 Text("Which day?", style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
                 DayPicker(trip, day, onDay)
@@ -146,9 +173,15 @@ fun TripHomeScreen(
         }
     }
 
-    if (addingPerson) NameDialog("Add person", "") { name ->
-        if (name != null && name.isNotBlank()) repo.addMember(trip.id, name)
+    if (addingPerson) NameDialog("Add person to ${family.name}", "") { name ->
+        if (name != null && name.isNotBlank()) repo.addMember(trip.id, name, family.id)
         addingPerson = false
+    }
+    if (addingFamily) AddFamilyDialog(onDismiss = { addingFamily = false }) { name, people ->
+        val id = repo.addFamily(trip.id, name, people)
+        familyId = id
+        selectedId = repo.data.value.trips.find { it.id == trip.id }?.let { t -> t.membersOf(id).firstOrNull()?.id }
+        addingFamily = false
     }
     if (showPeople) PeopleDialog(trip, repo) { showPeople = false }
 }
@@ -219,23 +252,83 @@ fun NameDialog(title: String, initial: String, onDone: (String?) -> Unit) {
 }
 
 @Composable
+fun AddFamilyDialog(onDismiss: () -> Unit, onAdd: (name: String, people: List<String>) -> Unit) {
+    var head by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var nameTouched by remember { mutableStateOf(false) }
+    val others = remember { mutableStateListOf("") }
+    val shownName = if (nameTouched) name else if (head.isBlank()) "" else defaultFamilyName(head)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add a family") },
+        text = {
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Track another family's orders on this phone, with their own bill.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(head, { head = it }, singleLine = true, label = { Text("First person (e.g. Sara)") })
+                others.forEachIndexed { i, n ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(n, { others[i] = it }, singleLine = true, label = { Text("Person ${i + 2}") },
+                            modifier = Modifier.weight(1f))
+                        IconButton(onClick = { if (others.size > 1) others.removeAt(i) else others[0] = "" }) { Icon(Icons.Default.Close, "Remove") }
+                    }
+                }
+                TextButton(onClick = { others.add("") }) {
+                    Icon(Icons.Default.PersonAdd, null); Spacer(Modifier.width(6.dp)); Text("Add another person")
+                }
+                OutlinedTextField(shownName, { name = it; nameTouched = true }, singleLine = true, label = { Text("Family name") },
+                    placeholder = { Text("e.g. Sara's family") })
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = head.isNotBlank(), onClick = {
+                onAdd(shownName.ifBlank { defaultFamilyName(head) }, listOf(head) + others)
+            }) { Text("Add family") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
 private fun PeopleDialog(trip: Trip, repo: TripRepository, onClose: () -> Unit) {
     var renaming by remember { mutableStateOf<Member?>(null) }
     var removing by remember { mutableStateOf<Member?>(null) }
+    var renamingFamily by remember { mutableStateOf<Family?>(null) }
+    var removingFamily by remember { mutableStateOf<Family?>(null) }
+    var addingTo by remember { mutableStateOf<Family?>(null) }
+    var addingFamily by remember { mutableStateOf(false) }
+    val families = trip.familyList
 
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("People on this trip") },
+        title = { Text("Families and people") },
         text = {
-            Column {
-                trip.members.forEach { m ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(m.name, Modifier.weight(1f))
-                        IconButton(onClick = { renaming = m }) { Icon(Icons.Default.Edit, "Rename") }
-                        IconButton(onClick = { removing = m }, enabled = trip.members.size > 1) {
-                            Icon(Icons.Default.DeleteOutline, "Remove")
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                for (f in families) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                        Icon(Icons.Default.Groups, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(f.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        IconButton(onClick = { renamingFamily = f }) { Icon(Icons.Default.Edit, "Rename family") }
+                        if (families.size > 1) IconButton(onClick = { removingFamily = f }) { Icon(Icons.Default.DeleteOutline, "Remove family") }
+                    }
+                    trip.membersOf(f.id).forEach { m ->
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 28.dp)) {
+                            Text(m.name, Modifier.weight(1f))
+                            IconButton(onClick = { renaming = m }) { Icon(Icons.Default.Edit, "Rename", Modifier.size(20.dp)) }
+                            IconButton(onClick = { removing = m }, enabled = trip.members.size > 1) {
+                                Icon(Icons.Default.DeleteOutline, "Remove", Modifier.size(20.dp))
+                            }
                         }
                     }
+                    TextButton(onClick = { addingTo = f }, modifier = Modifier.padding(start = 20.dp)) {
+                        Icon(Icons.Default.PersonAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Add person")
+                    }
+                    HorizontalDivider()
+                }
+                TextButton(onClick = { addingFamily = true }, modifier = Modifier.padding(top = 4.dp)) {
+                    Icon(Icons.Default.GroupAdd, null); Spacer(Modifier.width(6.dp)); Text("Add a family")
                 }
             }
         },
@@ -248,6 +341,21 @@ private fun PeopleDialog(trip: Trip, repo: TripRepository, onClose: () -> Unit) 
             renaming = null
         }
     }
+    renamingFamily?.let { f ->
+        NameDialog("Rename family", f.name) { n ->
+            if (n != null && n.isNotBlank()) repo.renameFamily(trip.id, f.id, n)
+            renamingFamily = null
+        }
+    }
+    addingTo?.let { f ->
+        NameDialog("Add person to ${f.name}", "") { n ->
+            if (n != null && n.isNotBlank()) repo.addMember(trip.id, n, f.id)
+            addingTo = null
+        }
+    }
+    if (addingFamily) AddFamilyDialog(onDismiss = { addingFamily = false }) { name, people ->
+        repo.addFamily(trip.id, name, people); addingFamily = false
+    }
     removing?.let { m ->
         AlertDialog(
             onDismissRequest = { removing = null },
@@ -255,6 +363,15 @@ private fun PeopleDialog(trip: Trip, repo: TripRepository, onClose: () -> Unit) 
             text = { Text("Their orders will be removed too.") },
             confirmButton = { TextButton(onClick = { repo.removeMember(trip.id, m.id); removing = null }) { Text("Remove") } },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
+    }
+    removingFamily?.let { f ->
+        AlertDialog(
+            onDismissRequest = { removingFamily = null },
+            title = { Text("Remove ${f.name}?") },
+            text = { Text("Everyone in this family and all their orders will be removed from this trip.") },
+            confirmButton = { TextButton(onClick = { repo.removeFamily(trip.id, f.id); removingFamily = null }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { removingFamily = null }) { Text("Cancel") } },
         )
     }
 }

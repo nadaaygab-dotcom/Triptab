@@ -30,8 +30,8 @@ class AdminScreenshotTest {
         repo.createTrip("Fayoum", "22 Oct 2026", "24 Oct 2026", "Nada", listOf("Yehia", "Alya"), true)
         val c = repo.createCompilation("Fayoum")
         repo.addImports(c, listOf(
-            BillExport.fromTrip(t.sampleTrip("Sara", listOf("Omar", "Laila")), "2026-10-24 21:40"),
-            BillExport.fromTrip(t.sampleTrip("Karim", listOf("Hana")), "2026-10-24 22:05"),
+            BillExport.fromTrip(t.sampleTrip("Sara", listOf("Omar", "Laila")), "2026-10-24 21:40").single(),
+            BillExport.fromTrip(t.sampleTrip("Karim", listOf("Hana")), "2026-10-24 22:05").single(),
         ))
         return repo to c
     }

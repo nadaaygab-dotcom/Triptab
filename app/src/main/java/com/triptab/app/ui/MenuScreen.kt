@@ -92,7 +92,7 @@ fun MenuScreen(
                 // Switch person without leaving the table.
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(trip.members, key = { it.id }) { m ->
+                    items(trip.membersOf(trip.familyOf(member).id), key = { it.id }) { m ->
                         val t = Billing.billAt(trip, place, m.id, dayOrNull(day)).total
                         FilterChip(
                             selected = m.id == member.id,

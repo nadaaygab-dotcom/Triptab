@@ -21,9 +21,17 @@ class LocalJsonRepository(private val file: File) : TripRepository {
         AppData()
     }
 
+    /** Trips saved before families existed: everyone goes into one family named after the owner. */
+    private fun withFamilies(t: Trip): Trip {
+        if (t.families.isNotEmpty() && t.members.all { m -> t.families.any { it.id == m.familyId } }) return t
+        val fams = t.families.ifEmpty { listOf(Family(id = t.id, name = defaultFamilyName(t.ownerName))) }
+        return t.copy(families = fams, members = t.members.map { m ->
+            if (fams.any { it.id == m.familyId }) m else m.copy(familyId = fams.first().id) })
+    }
+
     /** One-time updates to built-in menus (e.g. a restaurant's new prices); saved if anything changed. */
     private fun upgradeMenus(d: AppData): AppData {
-        val next = d.copy(trips = d.trips.map { PackingList.seed(KomElDikkaMenu.upgrade(it)) })
+        val next = d.copy(trips = d.trips.map { withFamilies(PackingList.seed(KomElDikkaMenu.upgrade(it))) })
         if (next != d) runCatching {
             val tmp = File(file.parentFile, file.name + ".tmp")
             tmp.writeText(json.encodeToString(AppData.serializer(), next))
@@ -52,9 +60,11 @@ class LocalJsonRepository(private val file: File) : TripRepository {
         name: String, startDate: String, endDate: String, ownerName: String,
         familyNames: List<String>, includeFayoumPlaces: Boolean,
     ): String {
+        val family = Family(name = defaultFamilyName(ownerName))
         val members = (listOf(ownerName) + familyNames)
-            .map { it.trim() }.filter { it.isNotEmpty() }.map { Member(name = it) }
+            .map { it.trim() }.filter { it.isNotEmpty() }.map { Member(name = it, familyId = family.id) }
         val trip = Trip(
+            families = listOf(family),
             name = name.trim(), startDate = startDate.trim(), endDate = endDate.trim(),
             ownerName = ownerName.trim(), members = members,
             places = if (includeFayoumPlaces) FayoumSeed.places() else emptyList(),
@@ -69,8 +79,31 @@ class LocalJsonRepository(private val file: File) : TripRepository {
     override fun updateTripInfo(tripId: String, name: String, startDate: String, endDate: String) =
         mutateTrip(tripId) { it.copy(name = name.trim(), startDate = startDate.trim(), endDate = endDate.trim()) }
 
-    override fun addMember(tripId: String, name: String) =
-        mutateTrip(tripId) { it.copy(members = it.members + Member(name = name.trim())) }
+    override fun addMember(tripId: String, name: String, familyId: String?) = mutateTrip(tripId) { t ->
+        val fid = familyId?.takeIf { id -> t.families.any { it.id == id } } ?: t.families.first().id
+        t.copy(members = t.members + Member(name = name.trim(), familyId = fid))
+    }
+
+    override fun addFamily(tripId: String, name: String, memberNames: List<String>): String {
+        val f = Family(name = name.trim().ifEmpty { "Family ${(data.value.trips.find { it.id == tripId }?.families?.size ?: 0) + 1}" })
+        mutateTrip(tripId) { t ->
+            t.copy(families = t.families + f,
+                members = t.members + memberNames.map { it.trim() }.filter { it.isNotEmpty() }.map { Member(name = it, familyId = f.id) })
+        }
+        return f.id
+    }
+
+    override fun renameFamily(tripId: String, familyId: String, name: String) = mutateTrip(tripId) { t ->
+        t.copy(families = t.families.map { if (it.id == familyId) it.copy(name = name.trim()) else it })
+    }
+
+    override fun removeFamily(tripId: String, familyId: String) = mutateTrip(tripId) { t ->
+        if (t.families.size <= 1) return@mutateTrip t
+        val gone = t.members.filter { it.familyId == familyId }.map { it.id }.toSet()
+        t.copy(families = t.families.filterNot { it.id == familyId },
+            members = t.members.filterNot { it.id in gone },
+            orders = t.orders.filterNot { it.memberId in gone })
+    }
 
     override fun renameMember(tripId: String, memberId: String, name: String) = mutateTrip(tripId) { t ->
         t.copy(members = t.members.map { if (it.id == memberId) it.copy(name = name.trim()) else it })

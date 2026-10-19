@@ -28,6 +28,8 @@ data class Trip(
     val members: List<Member> = emptyList(),
     val places: List<Place> = emptyList(),
     val orders: List<OrderLine> = emptyList(),
+    /** Families on this trip (empty in trips saved before families existed — see [familyList]). */
+    val families: List<Family> = emptyList(),
     /** Packing checklist for this trip. */
     val checklist: List<ChecklistItem> = emptyList(),
     /** True once the starting list was added, so deleting everything doesn't bring it back. */
@@ -38,7 +40,31 @@ data class Trip(
 data class Member(
     val id: String = newId(),
     val name: String,
+    /** Which family this person belongs to ("" in trips saved before families existed). */
+    val familyId: String = "",
 )
+
+/** A family within a trip — one phone can track several (e.g. yours and your sister's). */
+@Serializable
+data class Family(
+    val id: String = newId(),
+    /** Shown as is, e.g. "Nada's family". */
+    val name: String,
+)
+
+/** The trip's families; a trip saved before families existed has one, named after its owner. */
+val Trip.familyList: List<Family> get() = families.ifEmpty { listOf(Family(id = id, name = defaultFamilyName(ownerName))) }
+
+fun defaultFamilyName(owner: String) = if (owner.isBlank()) "My family" else "${owner.trim()}'s family"
+
+/** The family a member belongs to (unknown/blank → the first family). */
+fun Trip.familyOf(m: Member): Family = familyList.firstOrNull { it.id == m.familyId } ?: familyList.first()
+
+fun Trip.membersOf(familyId: String): List<Member> = members.filter { familyOf(it).id == familyId }
+
+/** Bill for a whole family, on one day or all days. */
+fun Billing.familyBill(trip: Trip, familyId: String, day: Int? = null): Bill =
+    trip.membersOf(familyId).fold(Bill.ZERO) { acc, m -> acc + billTotal(trip, m.id, day) }
 
 @Serializable
 enum class PlaceType { RESTAURANT, ACTIVITY }
