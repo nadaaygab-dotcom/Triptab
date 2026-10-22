@@ -17,10 +17,10 @@ class BillExportTest {
         val kd = t.places.first { it.name == "Kom El Dikka" }; val ibis = t.places.first { it.name == "Ibis Restaurant" }
         fun item(p: Place, n: String) = p.items.first { it.nameEn == n }.id
         val m = t.members
-        repo.setQuantity(id, m[0].id, kd.id, item(kd, "Grilled Kofta"), 1, 1)            // 435
-        repo.setQuantity(id, m[0].id, kd.id, item(kd, "Large Mineral Water"), 1, 2)      // 2 × 45
+        repo.setQuantity(id, m[0].id, kd.id, item(kd, "Grilled kofta"), 1, 1)            // 435
+        repo.setQuantity(id, m[0].id, kd.id, item(kd, "Mineral water large"), 1, 2)      // 2 × 45
         repo.setQuantity(id, m[0].id, ibis.id, item(ibis, "Turkish coffee"), 2, 1)       // 65
-        if (m.size > 1) repo.setQuantity(id, m[1].id, kd.id, item(kd, "Margherita Pizza"), 1, 1) // 685
+        if (m.size > 1) repo.setQuantity(id, m[1].id, kd.id, item(kd, "Margherita pizza"), 1, 1) // 685
         if (m.size > 2) repo.setQuantity(id, m[2].id, ibis.id, item(ibis, "Mango juice"), 3, 2)  // 2 × 100
         return repo.data.value.trips.first()
     }
@@ -33,7 +33,7 @@ class BillExportTest {
         // Bills match the app's own maths for each person and the family.
         for (m in trip.members) assertEquals(Billing.billTotal(trip, m.id).total, back.bill(m.name).total, 1e-9)
         assertEquals(Billing.billTotal(trip, null).total, back.bill().total, 1e-9)
-        assertEquals(670.32, back.bill("Nada", dayKey = "2026-10-22").total, 1e-9)   // 525 + 12% + 14%
+        assertEquals(556.6848, back.bill("Nada", dayKey = "2026-10-22").total, 1e-9)   // 436 + 12% + 14%
         assertEquals("Day 2 · Fri 23 Oct", BillExport.dayLabel(2, "2026-10-23"))
     }
 
@@ -46,7 +46,7 @@ class BillExportTest {
         assertEquals(BillExport.fromTrip(sampleTrip()).single().bill().total, familyTotal[6].toDouble(), 0.01)
         val orders = sheets["Orders"]!!
         assertEquals(listOf("Person", "Day", "Place", "Section", "Item", "Qty", "Price", "Line total"), orders[0])
-        assertTrue(orders.any { it.getOrNull(4) == "Grilled Kofta" && it[1] == "Day 1 · Thu 22 Oct" })
+        assertTrue(orders.any { it.getOrNull(4) == "Grilled kofta" && it[1] == "Day 1 · Thu 22 Oct" })
     }
 
     @Test fun sameNamesStayApart() {
@@ -68,7 +68,7 @@ class BillExportTest {
         assertEquals("Nada", o.family)
         assertEquals(listOf("Nada", "Yehia", "Alya"), o.members)
         assertEquals(5, o.lines.size)
-        assertEquals(BillExport.fromTrip(sampleTrip()).single().bill().total, o.bill().total, 0.01)
+        assertEquals(1841.73, o.bill().total, 0.01)   // the total in that saved file
     }
 
     @Test fun compiledTotalsAndReimportReplaces() {

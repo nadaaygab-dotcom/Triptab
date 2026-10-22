@@ -28,12 +28,12 @@ class ScreenshotTest {
         val ibis = t.places.first { it.name == "Ibis Restaurant" }
         fun item(p: Place, n: String) = p.items.first { it.nameEn == n }.id
         val (nada, yehia, alya) = t.members
-        repo.setQuantity(id, nada.id, kd.id, item(kd, "Grilled Kofta"), 1, 1)
-        repo.setQuantity(id, nada.id, kd.id, item(kd, "Baladi Salad"), 1, 1)
-        repo.setQuantity(id, nada.id, kd.id, item(kd, "Large Mineral Water"), 1, 2)
-        repo.setQuantity(id, nada.id, kd.id, item(kd, "Turkish Coffee"), 2, 1)
-        repo.setQuantity(id, nada.id, kd.id, item(kd, "Large Mineral Water"), 2, 1)
-        repo.setQuantity(id, yehia.id, kd.id, item(kd, "Margherita Pizza"), 1, 1)
+        repo.setQuantity(id, nada.id, kd.id, item(kd, "Grilled kofta"), 1, 1)
+        repo.setQuantity(id, nada.id, kd.id, item(kd, "Baladi salad"), 1, 1)
+        repo.setQuantity(id, nada.id, kd.id, item(kd, "Mineral water large"), 1, 2)
+        repo.setQuantity(id, nada.id, kd.id, item(kd, "Turkish coffee"), 2, 1)
+        repo.setQuantity(id, nada.id, kd.id, item(kd, "Mineral water large"), 2, 1)
+        repo.setQuantity(id, yehia.id, kd.id, item(kd, "Margherita pizza"), 1, 1)
         repo.setQuantity(id, alya.id, ibis.id, item(ibis, "Margherita"), 2, 1)
         repo.setQuantity(id, alya.id, ibis.id, item(ibis, "Mango juice"), 2, 1)
         return repo to id

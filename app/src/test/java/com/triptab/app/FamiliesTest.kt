@@ -35,10 +35,10 @@ class FamiliesTest {
         val kd = t.places.first { it.name == "Kom El Dikka" }
         fun item(n: String) = kd.items.first { it.nameEn == n }.id
         fun m(n: String) = t.members.first { it.name == n }.id
-        r.setQuantity(id, m("Nada"), kd.id, item("Grilled Kofta"), 1, 1)       // 435
-        r.setQuantity(id, m("Yehia"), kd.id, item("Margherita Pizza"), 1, 1)   // 685
-        r.setQuantity(id, m("Sara"), kd.id, item("Grilled Kofta"), 1, 2)       // 870
-        r.setQuantity(id, m("Omar"), kd.id, item("Penne Pesto"), 2, 1)         // 335, day 2
+        r.setQuantity(id, m("Nada"), kd.id, item("Grilled kofta"), 1, 1)       // 360
+        r.setQuantity(id, m("Yehia"), kd.id, item("Margherita pizza"), 1, 1)   // 200
+        r.setQuantity(id, m("Sara"), kd.id, item("Grilled kofta"), 1, 2)       // 720
+        r.setQuantity(id, m("Omar"), kd.id, item("Pasta basil"), 2, 1)         // 280, day 2
         return r to sara
     }
 
@@ -48,9 +48,9 @@ class FamiliesTest {
         assertEquals(listOf("Nada's family", "Sara's family"), t.familyList.map { it.name })
         assertEquals(listOf("Sara", "Omar"), t.membersOf(saraId).map { it.name })      // blank names skipped
         val k = 1.12 * 1.14
-        assertEquals((435 + 685) * k, Billing.familyBill(t, t.familyList[0].id).total, 1e-9)
-        assertEquals((870 + 335) * k, Billing.familyBill(t, saraId).total, 1e-9)
-        assertEquals(870 * k, Billing.familyBill(t, saraId, 1).total, 1e-9)
+        assertEquals((360 + 200) * k, Billing.familyBill(t, t.familyList[0].id).total, 1e-9)
+        assertEquals((720 + 280) * k, Billing.familyBill(t, saraId).total, 1e-9)
+        assertEquals(720 * k, Billing.familyBill(t, saraId, 1).total, 1e-9)
         // Adding a person goes to the chosen family.
         r.addMember(t.id, "Laila", saraId)
         assertEquals(saraId, r.data.value.trips[0].members.first { it.name == "Laila" }.familyId)
@@ -131,7 +131,7 @@ class FamiliesTest {
         compose.setContent { TripTabTheme { val d by r.data.collectAsState(); SummaryScreen(d.trips[0], ALL_DAYS, {}, {}) } }
         compose.onRoot().captureRoboImage("build/screenshots/20_summary_families.png")
         val text = buildShareText(r.data.value.trips[0])
-        assertTrue(text, text.contains("👨‍👩‍👧 Sara's family: EGP 1,538.54"))
+        assertTrue(text, text.contains("👨‍👩‍👧 Sara's family: EGP 1,276.80"))
         assertTrue(text.contains("All families total"))
     }
 }

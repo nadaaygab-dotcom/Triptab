@@ -11,7 +11,149 @@ package com.triptab.app.data
  */
 object KomElDikkaMenu {
     const val NAME = "Kom El Dikka"
-    const val VERSION = 2
+    /**
+     * 3 = back to the first (bilingual) menu with its original prices (user's choice, 22 Oct 2026).
+     * 2 = the October 2026 menu as printed. 0/1 = the first menu with its original prices.
+     */
+    const val VERSION = 3
+
+    /** A dish on the first menu: section, English, Arabic, original price. */
+    data class V1Item(val category: String, val nameEn: String, val nameAr: String, val oldPrice: Int)
+
+    val V1_MENU: List<V1Item> = listOf(
+        V1Item("Salads", "Baladi salad", "سلطة بلدي", 42),
+        V1Item("Salads", "Pickled eggplant", "باذنجان مخلل", 44),
+        V1Item("Salads", "Tabbouleh", "تبولة", 78),
+        V1Item("Salads", "Rocket salad", "سلطة جرجير", 114),
+        V1Item("Salads", "Tahini", "طحينة", 72),
+        V1Item("Salads", "Fattoush", "فتوش", 104),
+        V1Item("Salads", "Pickles", "مخلل", 25),
+        V1Item("Salads", "Baba ghanoush", "بابا غنوج", 66),
+        V1Item("Appetizers", "Sambousek", "سمبوسك", 150),
+        V1Item("Appetizers", "Chicken strips", "ستربس فراخ", 282),
+        V1Item("Appetizers", "Shrimp with spinach", "سبانخ جمبري", 342),
+        V1Item("Appetizers", "Mombar", "ممبار", 138),
+        V1Item("Appetizers", "Sausage (sogo')", "سجق", 252),
+        V1Item("Appetizers", "Alexandrian liver", "كبدة اسكندراني", 234),
+        V1Item("Appetizers", "Beef mint", "بيف منت", 252),
+        V1Item("Appetizers", "Spicy potatoes", "بطاطس حارة", 72),
+        V1Item("Appetizers", "Hummus fatteh", "فتة حمص", 210),
+        V1Item("Appetizers", "Vine leaves", "ورق عنب", 90),
+        V1Item("Appetizers", "Kobeba", "كوبيبه", 282),
+        V1Item("Soups", "Vegetable soup", "شوربه خضار", 90),
+        V1Item("Soups", "Mushroom soup", "شوربه مشروم", 125),
+        V1Item("Soups", "Tomato soup", "شوربه طماطم", 100),
+        V1Item("Soups", "Chicken soup", "شوربه فراخ", 140),
+        V1Item("Main dishes", "Fillet with mushroom", "فليه مشروم", 540),
+        V1Item("Main dishes", "Freekeh tagine (plain)", "طاجن فريك سادة", 300),
+        V1Item("Main dishes", "Grilled kofta", "كفته مشوية", 360),
+        V1Item("Main dishes", "Half deboned chicken", "نصف فراخ مسحب", 378),
+        V1Item("Main dishes", "Shish tawook", "شيش طاووق", 371),
+        V1Item("Main dishes", "Mixed grill", "مكس جريل", 822),
+        V1Item("Main dishes", "Veal kebab", "كباب بتلو", 720),
+        V1Item("Main dishes", "Veal ribs", "رايش بتلو", 780),
+        V1Item("Main dishes", "Rosemary liver", "كبده روزماري", 342),
+        V1Item("Main dishes", "Roz me'ammar (rice casserole)", "ارز معمر", 480),
+        V1Item("Main dishes", "Roz me'ammar with pigeon", "ارز معمر حمام", 425),
+        V1Item("Main dishes", "Roz me'ammar (plain)", "ارز معمر ساده", 240),
+        V1Item("Main dishes", "Escalope pané", "اسكال بانيه", 540),
+        V1Item("Main dishes", "Grilled sea bream", "سمك قروص مشوي", 540),
+        V1Item("Main dishes", "Bayad fish", "سمك قشر بياض", 360),
+        V1Item("Main dishes", "Freekeh tagine with meat", "طاجن فريك باللحمة", 510),
+        V1Item("Vegetable dishes", "Molokhia", "ملوخية", 81),
+        V1Item("Vegetable dishes", "Moussaka tagine", "طاجن مسقعة", 81),
+        V1Item("Vegetable dishes", "Okra tagine (plain)", "طاجن بامية سادة", 120),
+        V1Item("Vegetable dishes", "Moussaka tagine with meat", "طاجن مسقعة باللحمة", 243),
+        V1Item("Country (Reefi)", "Half duck", "نصف بط", 516),
+        V1Item("Country (Reefi)", "Pair of pigeons", "جوز حمام", 540),
+        V1Item("Country (Reefi)", "Baladi chicken", "فراخ بلدي", 510),
+        V1Item("Pasta", "Pasta tomato sauce", "باستا صوص طماطم", 150),
+        V1Item("Pasta", "Pasta basil", "باستا ريحان", 280),
+        V1Item("Pasta", "Pasta bolognese", "باستا بولونيز", 280),
+        V1Item("Pasta", "Pasta chicken & mushroom sauce", "باستا صوص فراخ ومشروم", 280),
+        V1Item("Pasta", "Pasta with vegetables", "باستا بالخضار", 150),
+        V1Item("Pizza", "Chicken pizza", "بتزا فراخ", 300),
+        V1Item("Pizza", "Shrimp pizza", "بتزا جمبري", 375),
+        V1Item("Pizza", "Salami pizza", "بتزا سلامي", 350),
+        V1Item("Pizza", "Vegetable pizza", "بتزا خضار", 225),
+        V1Item("Pizza", "Margherita pizza", "بتزا مارجريتا", 200),
+        V1Item("Pizza", "Mixed cheese pizza", "بتزا مكس جبن", 300),
+        V1Item("Pizza", "Sausage pizza", "بتزا سجق", 350),
+        V1Item("Feteer", "Sausage feteer", "فطيرة سجق", 375),
+        V1Item("Feteer", "Mixed cheese feteer", "فطيرة ميكس جبن", 325),
+        V1Item("Feteer", "Basterma feteer", "فطيرة بسطرمة", 320),
+        V1Item("Feteer", "Chicken feteer", "فطيرة فراخ", 320),
+        V1Item("Feteer", "Nutella feteer", "فطيرة نوتيلا", 250),
+        V1Item("Feteer", "Sugar & milk feteer", "فطيرة سكر ولبن", 150),
+        V1Item("Sandwiches", "Melted cheese sandwich", "سندوتش جبنه سايحه", 138),
+        V1Item("Sandwiches", "Cheese & tomato sandwich", "سندوتش جبنه بالطماطم", 86),
+        V1Item("Sandwiches", "Chicken strips sandwich", "سندوتش استربس فراخ", 144),
+        V1Item("Sandwiches", "Burger sandwich", "سندوتش بورجر", 431),
+        V1Item("Sandwiches", "Shish tawook sandwich", "سندوتش شيش طاووق", 164),
+        V1Item("Sandwiches", "Kofta sandwich", "سندوتش كفته", 249),
+        V1Item("Sides", "Sautéed vegetables", "خضار سوتية", 60),
+        V1Item("Sides", "Grilled vegetables", "خضار مشوي", 72),
+        V1Item("Sides", "French fries", "بطاطس مقلية", 78),
+        V1Item("Sides", "White rice", "ارز ابيض", 54),
+        V1Item("Desserts", "Om Ali", "ام علي", 150),
+        V1Item("Desserts", "Nutella crepe", "كريب نوتيلا", 144),
+        V1Item("Desserts", "Rice pudding", "ارز باللبن", 90),
+        V1Item("Desserts", "Ice cream", "ايس كريم", 125),
+        V1Item("Desserts", "Marshmallow", "مارشميللو", 110),
+        V1Item("Desserts", "Sweet feteer", "فطير", 231),
+        V1Item("Hot drinks", "Turkish coffee", "قهوة تركي", 66),
+        V1Item("Hot drinks", "Double Turkish coffee", "قهوة تركي دبل", 72),
+        V1Item("Hot drinks", "Espresso", "اسبريسو", 75),
+        V1Item("Hot drinks", "Double espresso", "دبل اسبريسو", 102),
+        V1Item("Hot drinks", "Nescafé", "نسكافيه", 96),
+        V1Item("Hot drinks", "Latte", "لاتيه", 110),
+        V1Item("Hot drinks", "Hot chocolate", "هوت شوكولاته", 84),
+        V1Item("Hot drinks", "Hot cider", "هوت سيدر", 57),
+        V1Item("Hot drinks", "French coffee", "قهوة فرنسي", 84),
+        V1Item("Hot drinks", "Hazelnut coffee", "قهوة بندق", 90),
+        V1Item("Hot drinks", "Macchiato", "مكياتو", 80),
+        V1Item("Hot drinks", "Cortado", "كورتادو", 100),
+        V1Item("Hot drinks", "Flat white", "فلات وايت", 125),
+        V1Item("Tea & herbs", "Tea / green tea / anise / karkadeh", "شاي احمر - اخضر - ينسون - كركديه", 42),
+        V1Item("Tea & herbs", "Tea with milk", "شاي بالحليب", 50),
+        V1Item("Water & soft drinks", "Mineral water small", "مياه معدنيه صغيره", 26),
+        V1Item("Water & soft drinks", "Mineral water large", "مياه معدنيه كبيره", 38),
+        V1Item("Water & soft drinks", "Pepsi / 7UP / Mirinda", "بيبسي - سفن - ميرندا", 46),
+        V1Item("Water & soft drinks", "Red Bull", "ريدبول", 96),
+        V1Item("Cold drinks", "Lemon mint", "ليمون نعناع", 65),
+        V1Item("Cold drinks", "Fresh juice", "عصير فريش", 117),
+        V1Item("Cold drinks", "Iced coffee", "ايس كوفي", 133),
+        V1Item("Cold drinks", "Iced latte", "ايس لاتيه", 133),
+        V1Item("Cold drinks", "Spanish latte", "اسبانش لاتيه", 140),
+        V1Item("Cold drinks", "Iced chocolate", "ايس شوكلت", 133),
+        V1Item("Cold drinks", "Iced tea", "ايس تي", 70),
+        V1Item("Cold drinks", "Frappuccino", "فرابتشينو", 152),
+        V1Item("Cold drinks", "Frappe", "فرابيه", 125),
+        V1Item("Cold drinks", "Milkshake", "ميلك شيك", 190),
+        V1Item("Mocktails", "Classic mojito", "موهيتو كلاسيك", 76),
+        V1Item("Mocktails", "Mojito of your choice", "موهيتو من اختيارك", 100),
+        V1Item("Mocktails", "Smoothie of your choice", "اسموزي من اختيارك", 100),
+        V1Item("Mocktails", "Passion fruit", "باشيون فروت", 76),
+        V1Item("Mocktails", "Sunshine", "صن شاين", 76),
+        V1Item("Mocktails", "Sunrise", "صن رايس", 114),
+        V1Item("Mocktails", "Cherry cola", "شيري كولا", 95),
+        V1Item("Mocktails", "Piña colada", "بينا كولادا", 133),
+        V1Item("Mocktails", "Birell", "بيريل", 57),
+        V1Item("Shisha", "Fruit shisha", "شيشه فواكه", 138),
+        V1Item("Shisha", "Plain shisha (salloum)", "شيشه سلوم", 96),
+    )
+
+    /** A dish on the menu the app uses now, and where its price came from. */
+    data class Current(val category: String, val nameEn: String, val nameAr: String, val price: Double,
+                       /** The same dish's name on the October menu, if it's there. */ val octoberName: String?) {
+        val repriced get() = octoberName != null
+    }
+
+    /** The first menu with its original prices. [Current.octoberName] lets phones that had the October menu keep their orders. */
+    val current: List<Current> by lazy {
+        val octByV1 = entries.filter { it.was != null }.associateBy { it.was!! }
+        V1_MENU.map { v -> Current(v.category, v.nameEn, v.nameAr, v.oldPrice.toDouble(), octByV1[v.nameEn]?.nameEn) }
+    }
 
     /** Version-1 dish names (English) and their Arabic names, as first shipped. */
     val V1: Map<String, String> = linkedMapOf(
@@ -315,7 +457,7 @@ object KomElDikkaMenu {
         same("Tea With Milk", 60, "Tea with milk")
     }.list
 
-    const val NOTE = "Agri Lodge — October 2026 menu. A 12% service charge and 14% taxes are added to the final bill."
+    const val NOTE = "Agri Lodge. Menu says 12% service and 14% taxes are added to the final bill."
 
     fun place(): Place = Place(
         name = NAME,
@@ -325,7 +467,7 @@ object KomElDikkaMenu {
         taxPct = 14.0,
         note = NOTE,
         menuVersion = VERSION,
-        items = entries.map { MenuItem(category = it.category, nameEn = it.nameEn, nameAr = it.nameAr, price = it.price) },
+        items = current.map { MenuItem(category = it.category, nameEn = it.nameEn, nameAr = it.nameAr, price = it.price) },
     )
 
     /**
@@ -343,21 +485,21 @@ object KomElDikkaMenu {
         val byName = old.items.associateBy { MenuMerge.key(it.nameEn) }
         val used = mutableSetOf<String>()
 
-        val updated = entries.map { e ->
-            val match = (e.was?.let { byName[MenuMerge.key(it)] } ?: byName[MenuMerge.key(e.nameEn)])
+        // Each dish keeps its existing item (and so its orders), whether the phone had the first or the October names.
+        val updated = current.map { e ->
+            val match = listOfNotNull(e.nameEn, e.octoberName).firstNotNullOfOrNull { byName[MenuMerge.key(it)] }
                 ?.takeIf { it.id !in used }
             if (match != null) {
                 used += match.id
                 match.copy(category = e.category, nameEn = e.nameEn, nameAr = e.nameAr, price = e.price)
             } else MenuItem(category = e.category, nameEn = e.nameEn, nameAr = e.nameAr, price = e.price)
         }
-        val v1Keys = V1.keys.map(MenuMerge::key).toSet()
+        val builtIn = (V1.keys + entries.map { it.nameEn }).map(MenuMerge::key).toSet()
         val leftovers = old.items.filter { it.id !in used }.mapNotNull { item ->
-            val fromOldMenu = MenuMerge.key(item.nameEn) in v1Keys
             when {
-                !fromOldMenu -> item                                              // user's own item
+                MenuMerge.key(item.nameEn) !in builtIn -> item                     // user's own item
                 item.id in ordered -> item.copy(category = "No longer on the menu")  // keep for existing orders
-                else -> null                                                      // removed from the menu
+                else -> null
             }
         }
         val place = old.copy(

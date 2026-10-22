@@ -4,7 +4,7 @@ An Android app for families travelling together to keep track of who ordered wha
 
 ## Install
 
-On your Android phone, tap **[Download TripTab-0.8.apk](https://github.com/nadaaygab-dotcom/Triptab/raw/main/apk/TripTab-0.8.apk)** (Android 8.0 or newer), then open the downloaded file, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
+On your Android phone, tap **[Download TripTab-0.9.apk](https://github.com/nadaaygab-dotcom/Triptab/raw/main/apk/TripTab-0.9.apk)** (Android 8.0 or newer), then open the downloaded file, and allow installing from that source when asked. If Google Play Protect warns that it doesn't recognise the app, tap **More details → Install anyway**.
 
 ## What it does
 
@@ -21,7 +21,7 @@ On your Android phone, tap **[Download TripTab-0.8.apk](https://github.com/nadaa
 - **Packing checklist** for every trip, starting with a ready-made list (bedding & bath, clothes, health, food & kitchen, fun & tech, money): tick items off, add/edit/delete, hide packed items, uncheck all for the trip home, and share what's left to pack on WhatsApp.
 - Works fully offline; data stays on the phone.
 
-Comes with the Fayoum trip places (22–24 Oct 2026): Kom El Dikka (October 2026 menu, +12% service, +14% tax), Ibis Restaurant (+12% service), Tibtunis (menu to be added) and Safari.
+Comes with the Fayoum trip places (22–24 Oct 2026): Kom El Dikka (first menu with its original prices, +12% service, +14% tax), Ibis Restaurant (+12% service), Tibtunis (menu to be added) and Safari.
 
 ## Build from source
 
