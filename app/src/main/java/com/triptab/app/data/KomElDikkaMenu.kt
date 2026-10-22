@@ -12,10 +12,11 @@ package com.triptab.app.data
 object KomElDikkaMenu {
     const val NAME = "Kom El Dikka"
     /**
+     * 4 = first menu, with the prices the restaurant actually charged on the 22 Oct 2026 receipt ([RECEIPT_PRICES]).
      * 3 = back to the first (bilingual) menu with its original prices (user's choice, 22 Oct 2026).
      * 2 = the October 2026 menu as printed. 0/1 = the first menu with its original prices.
      */
-    const val VERSION = 3
+    const val VERSION = 4
 
     /** A dish on the first menu: section, English, Arabic, original price. */
     data class V1Item(val category: String, val nameEn: String, val nameAr: String, val oldPrice: Int)
@@ -149,10 +150,35 @@ object KomElDikkaMenu {
         val repriced get() = octoberName != null
     }
 
-    /** The first menu with its original prices. [Current.octoberName] lets phones that had the October menu keep their orders. */
+    /**
+     * Dishes the restaurant charged at a higher price than the first menu (receipt of 22 Oct 2026).
+     * Keyed by English name; also covers October-menu names a phone may still carry for the same dish.
+     */
+    val RECEIPT_PRICES: Map<String, Double> = mapOf(
+        "Pasta tomato sauce" to 180.0,
+        "Pasta bolognese" to 335.0,
+        "Pasta chicken & mushroom sauce" to 335.0,
+        "Penne Alfredo" to 335.0,
+        "Fattoush" to 125.0,
+        "Chicken soup" to 165.0,
+        "Vine leaves" to 110.0,
+        "Chicken strips" to 340.0,
+        "Mombar" to 165.0,
+        "Spicy potatoes" to 90.0,
+        "Grilled vegetables" to 75.0,
+        "Sautéed vegetables" to 75.0,
+        "Pepsi / 7UP / Mirinda" to 50.0,
+        "Pepsi Diet" to 50.0,
+    )
+    private val receiptByKey by lazy { RECEIPT_PRICES.mapKeys { MenuMerge.key(it.key) } }
+    fun receiptPrice(nameEn: String): Double? = receiptByKey[MenuMerge.key(nameEn)]
+
+    /** The first menu with its original prices, except where the receipt shows a higher one. [Current.octoberName] lets phones that had the October menu keep their orders. */
     val current: List<Current> by lazy {
         val octByV1 = entries.filter { it.was != null }.associateBy { it.was!! }
-        V1_MENU.map { v -> Current(v.category, v.nameEn, v.nameAr, v.oldPrice.toDouble(), octByV1[v.nameEn]?.nameEn) }
+        V1_MENU.map { v ->
+            Current(v.category, v.nameEn, v.nameAr, receiptPrice(v.nameEn) ?: v.oldPrice.toDouble(), octByV1[v.nameEn]?.nameEn)
+        }
     }
 
     /** Version-1 dish names (English) and their Arabic names, as first shipped. */
@@ -481,6 +507,13 @@ object KomElDikkaMenu {
         val idx = trip.places.indexOfFirst { it.name.trim().equals(NAME, ignoreCase = true) && it.menuVersion < VERSION }
         if (idx < 0) return trip
         val old = trip.places[idx]
+        if (old.menuVersion == 3) {
+            // Already on the first menu: only reprice the dishes the receipt showed, keep everything else as it is.
+            val place = old.copy(menuVersion = VERSION, items = old.items.map { item ->
+                receiptPrice(item.nameEn)?.let { item.copy(price = it) } ?: item
+            })
+            return trip.copy(places = trip.places.toMutableList().also { it[idx] = place })
+        }
         val ordered = trip.orders.filter { it.placeId == old.id }.map { it.itemId }.toSet()
         val byName = old.items.associateBy { MenuMerge.key(it.nameEn) }
         val used = mutableSetOf<String>()
@@ -498,7 +531,8 @@ object KomElDikkaMenu {
         val leftovers = old.items.filter { it.id !in used }.mapNotNull { item ->
             when {
                 MenuMerge.key(item.nameEn) !in builtIn -> item                     // user's own item
-                item.id in ordered -> item.copy(category = "No longer on the menu")  // keep for existing orders
+                item.id in ordered -> item.copy(category = "No longer on the menu",  // keep for existing orders
+                    price = receiptPrice(item.nameEn) ?: item.price)
                 else -> null
             }
         }
