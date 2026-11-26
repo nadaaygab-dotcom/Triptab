@@ -155,6 +155,32 @@ fun PlaceEditScreen(trip: Trip, placeId: String, repo: TripRepository, onBack: (
                     Text("Create the place first, then scan its menu or add items.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                item {
+                    Text("Or add a saved menu", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp))
+                }
+                items(SavedMenus.all, key = { "saved_" + it.first }) { (label, make) ->
+                    val already = trip.places.any { it.name.equals(label, ignoreCase = true) }
+                    OutlinedCard(onClick = {
+                        val p = SavedMenus.copy(make, id)
+                        repo.upsertPlace(trip.id, p)
+                        name = p.name; nameAr = p.nameAr; type = p.type; service = p.servicePct.plain()
+                        tax = p.taxPct.plain(); taxOnService = p.taxOnService; note = p.note
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.RestaurantMenu, null); Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(label, fontWeight = FontWeight.Medium)
+                                val sample = make()
+                                Text("${sample.items.size} items · +${sample.servicePct.plain()}% service" +
+                                    (if (sample.taxPct > 0) ", +${sample.taxPct.plain()}% tax" else "") +
+                                    (if (already) " · already in this trip" else ""),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Default.Add, "Add")
+                        }
+                    }
+                }
             }
         }
     }
